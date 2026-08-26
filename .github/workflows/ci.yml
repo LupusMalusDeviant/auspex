@@ -1,0 +1,357 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  # Von Hand ausloesbar. Noetig geworden, als ein Force-Push die Historie
+  # ersetzte und GitHub dafuer keinen Lauf startete: auf main stand dann ein
+  # gruener Haken fuer einen Commit, den es nicht mehr gab.
+  workflow_dispatch:
+
+# Three languages, three toolchains, separate jobs: whoever only changes
+# something in the resolver should not wait for the .NET SDK — and a failure
+# shows without searching which part is meant.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resolver:
+    name: Resolver (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: auspex/go.mod
+          cache-dependency-path: auspex/go.sum
+
+      - name: Formatting
+        working-directory: auspex
+        run: |
+          # gofmt reports deviations on stdout rather than through an exit code.
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Not formatted:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: vet
+        working-directory: auspex
+        run: go vet ./...
+
+      - name: Build
+        working-directory: auspex
+        run: go build ./...
+
+      - name: Tests
+        working-directory: auspex
+        # -race uncovers exactly the faults that show up under load in
+        # production and cannot otherwise be reproduced.
+        run: go test -race ./...
+
+  control:
+    name: Control plane (.NET)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Dependencies
+        working-directory: control
+        run: dotnet restore
+
+      - name: Build
+        working-directory: control
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Tests
+        working-directory: control
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  sensor:
+    name: Sensor (.NET)
+    runs-on: ubuntu-latest
+    # The sensor reads the Windows connection table over P/Invoke - that binds
+    # at run time only, so the project targets net10.0 and not net10.0-windows.
+    # It can therefore be built and checked here, and the Windows dependency
+    # stands where it belongs: in a check at run time.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Dependencies
+        working-directory: sensor
+        run: dotnet restore
+
+      - name: Build
+        working-directory: sensor
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Tests
+        working-directory: sensor
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  scripts:
+    name: Scripts parse
+    runs-on: ubuntu-latest
+    # A setup script that does not parse is the one failure a setup script
+    # must not have: it runs elevated, in a window that closes on abort. This
+    # caught a "$var:" that PowerShell reads as a scoped variable reference -
+    # the whole file stopped parsing, and nothing would have run.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: PowerShell
+        shell: pwsh
+        run: |
+          $errors = $null
+          $tokens = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "sensor/setup.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors) {
+            $errors | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" }
+            exit 1
+          }
+          "  sensor/setup.ps1 parses"
+
+      - name: Shell
+        run: |
+          for f in extension/build.sh teardown.sh; do
+            bash -n "$f" || exit 1
+            echo "  $f parses"
+          done
+
+      - name: JavaScript
+        run: |
+          # Syntax only. Whether a script calls something that does not exist
+          # is checked in FrontendTests - node --check would pass that.
+          for f in control/Auspex.Control/wwwroot/*.js extension/shared/*.js; do
+            node --check "$f" || exit 1
+          done
+          echo "  every script parses"
+
+  extension:
+    name: Extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The manifests are valid JSON
+        run: |
+          for f in extension/chrome/manifest.json extension/firefox/manifest.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+            echo "  $f ok"
+          done
+
+      - name: Build the bundles
+        run: ./extension/build.sh
+
+      - name: Both bundles are complete
+        run: |
+          # A missing script otherwise only shows when loading it in the
+          # browser, and there with a message that points at something else.
+          for target in chrome firefox; do
+            for file in manifest.json background.js popup.html popup.js \
+                        auspex.js settings.html settings.js badge.js \
+                        appearance.js texts.js icons/16.png icons/48.png icons/128.png; do
+              test -f "extension/dist/$target/$file" \
+                || { echo "missing: dist/$target/$file"; exit 1; }
+            done
+          done
+          echo "  both complete"
+
+  images:
+    name: Build the containers
+    runs-on: ubuntu-latest
+    # The control plane's Dockerfile has twice broken something that did not
+    # show at build time: once a floating SDK version under which
+    # blazor.web.js stopped landing in the asset manifest, once a --no-restore
+    # that left the framework files out. Both times the interface came out
+    # static and the build was green.
+    #
+    # So a green build does not prove much - but a red one proves something.
+    # Without this job a broken Dockerfile only shows on the running
+    # installation, and there the dashboard is then gone.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Resolver
+        uses: docker/build-push-action@v7
+        with:
+          context: ./auspex
+          push: false
+          load: true
+          tags: auspex:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Control plane
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: control/Auspex.Control/Dockerfile
+          push: false
+          load: true
+          tags: auspex-control:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Does the interface come out interactive?
+        run: |
+          # Exactly the file whose absence went unnoticed twice. Without it
+          # Blazor does not load and the pages stand still - without an error
+          # appearing anywhere.
+          docker run --rm --entrypoint sh auspex-control:ci \
+            -c 'test -f /app/wwwroot/_framework/blazor.web.js' \
+            || { echo "blazor.web.js is missing from the image - the interface would be static"; exit 1; }
+          echo "  blazor.web.js is in the image"
+
+      - name: Are the extension sources in it?
+        run: |
+          # The build context sits one level higher so that these files come
+          # along. Should that ever fall back, they would be missing silently
+          # - and the download button in the dashboard would lead nowhere.
+          for f in shared/background.js shared/badge.js \
+                   shared/appearance.js shared/texts.js shared/icons/48.png \
+                   chrome/manifest.json firefox/manifest.json; do
+            docker run --rm --entrypoint sh auspex-control:ci \
+              -c "test -f /app/extension/$f" \
+              || { echo "missing from the image: extension/$f"; exit 1; }
+          done
+          echo "  complete"
+
+      - name: Is the sensor in it?
+        run: |
+          # It comes into being while the image is built and cannot be
+          # produced at run time - the runtime image has no SDK. If it drops
+          # out, the button in the dashboard leads nowhere, and that would
+          # only show on clicking.
+          for f in auspex-sensor.exe setup.ps1 README.md; do
+            docker run --rm --entrypoint sh auspex-control:ci \
+              -c "test -s /app/sensor/$f" \
+              || { echo "missing from the image: sensor/$f"; exit 1; }
+          done
+          # And it should be a SELF-CONTAINED file. Framework-dependent it
+          # would be 200 KB, and .NET would have to be installed on the target
+          # machine first - exactly what the button is meant to save.
+          size=$(docker run --rm --entrypoint sh auspex-control:ci \
+            -c "stat -c %s /app/sensor/auspex-sensor.exe")
+          if [ "$size" -lt 5000000 ]; then
+            echo "auspex-sensor.exe is only $size bytes - that is not self-contained"
+            exit 1
+          fi
+          echo "  complete, $size bytes"
+
+      - name: Are the icons in it?
+        run: |
+          for f in favicon.ico icons/auspex-32.png icons/auspex-180.png site.webmanifest; do
+            docker run --rm --entrypoint sh auspex-control:ci \
+              -c "test -f /app/wwwroot/$f" \
+              || { echo "missing from the image: $f"; exit 1; }
+          done
+          echo "  complete"
+
+  hygiene:
+    name: Nothing private in the tree
+    runs-on: ubuntu-latest
+    # These checks are the reason the repository may be public. Whatever slips
+    # through here cannot be taken back after a push — cloned is cloned.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: No key or credential files
+        run: |
+          hits=$(git ls-files | grep -iE '\.(env|pem|key|pfx|p12|jks|keystore)$|(^|/)\.env|id_rsa|(^|/)secrets?\.' || true)
+          if [ -n "$hits" ]; then
+            echo "A key or credential file is being tracked:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "  none"
+
+      - name: No private keys in the content
+        run: |
+          hits=$(grep -rIl -E 'BEGIN (RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY' --exclude-dir=.git --exclude-dir=bin --exclude-dir=obj . || true)
+          if [ -n "$hits" ]; then
+            echo "A private key was found in:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "  none"
+
+      - name: No stored credentials
+        run: |
+          pattern='(password|passwort|kennwort|secret|token|apikey|api_key|bearer)[[:space:]]*[:=][[:space:]]*"[^"$<{]{6,}'
+          hits=$(grep -rInE "$pattern" --exclude-dir=.git --exclude-dir=bin --exclude-dir=obj --exclude-dir=dist --exclude='*.md' --exclude='ci.yml' . \
+                 | grep -viE 'placeholder|beispiel|example|dein|your|null|empty' || true)
+          if [ -n "$hits" ]; then
+            echo "This looks like stored credentials:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "  none"
+
+      - name: No real MAC addresses
+        run: |
+          # A MAC names a physical device. Allowed are the range reserved for
+          # documentation by RFC 7042, 00:00:5e:00:53:xx, and the usual
+          # placeholders; 02:/06: stand for the locally administered examples
+          # in the test of the randomised-MAC detection.
+          allowed='00:00:5e:00:53|02:00:5e|06:00:5e|aa:bb:cc|11:22:33|00:00:00:00:00:00|de:ad:be:ef|ff:ff:ff:ff:ff:ff'
+          hits=$(grep -rInoE '([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}' --exclude-dir=.git --exclude-dir=bin --exclude-dir=obj --exclude-dir=dist . \
+                 | grep -viE "$allowed" || true)
+          if [ -n "$hits" ]; then
+            echo "Real MAC addresses found:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "  none"
+
+      - name: No addresses from a real tailnet
+        run: |
+          # Tailscale hands out 100.64.0.0/10. Those addresses name a
+          # specific machine in a specific tailnet, so only the
+          # documentation range 100.64.0.x belongs in the tree. Added after
+          # a real one turned up twice - in the example config and in a
+          # config test. Two exceptions, both of which name no machine:
+          # 100.127.255.255 is the last address of the range, which the
+          # boundary test in rebind_test.go cannot express from inside
+          # 100.64.0.x - and 100.100.100.100 is Tailscale's MagicDNS
+          # resolver, identical in every tailnet on earth and the actual
+          # address anyone configuring reverse_via has to write down.
+          hits=$(grep -rInoE '100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]+\.[0-9]+'                  --exclude-dir=.git --exclude-dir=bin --exclude-dir=obj --exclude-dir=dist --exclude='ci.yml' .                  | grep -vE '100\.64\.0\.[0-9]+|100\.127\.255\.255|100\.100\.100\.100' || true)
+          if [ -n "$hits" ]; then
+            echo "Tailnet addresses outside the documentation range 100.64.0.0/24:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "  none"
+
+      - name: No addresses from a real network
+        run: |
+          # The example network is 192.168.1.0/24. Another 192.168 network in
+          # the tree very probably comes from a real installation. Docker
+          # bridges (172.16-31) and 10.x stay allowed.
+          hits=$(grep -rInoE '192\.168\.[0-9]+\.[0-9]+' --exclude-dir=.git --exclude-dir=bin --exclude-dir=obj --exclude-dir=dist . \
+                 | grep -vE '192\.168\.1\.[0-9]+' || true)
+          if [ -n "$hits" ]; then
+            echo "Addresses outside the example network 192.168.1.0/24:"
+            echo "$hits"
+            exit 1
+          fi
+          echo "  none"

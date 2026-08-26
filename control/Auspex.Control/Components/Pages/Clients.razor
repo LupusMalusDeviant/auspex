@@ -1,0 +1,279 @@
+@page "/devices"
+@rendermode InteractiveServer
+@inject IAuspexClient Auspex
+@inject NavigationManager Nav
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleDeviceProfiles</PageTitle>
+
+<h1>@T.TitleDeviceProfiles</h1>
+<p class="sub">@T.DevicesIntro</p>
+
+@if (_message is not null)
+{
+    <div class="panel"><p class="muted m-0">@_message</p></div>
+}
+
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.ManagedProfiles</h2>
+        <div class="spacer"></div>
+        <button class="primary" @onclick="CreateNew" disabled="@_busy">@T.NewProfile</button>
+    </div>
+
+    @if (_clients.Count == 0)
+    {
+        <p class="muted m-0">@T.NoProfileYet</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+            <tr>
+                <th>@T.ColumnName</th>
+                <th>@T.ColumnAddresses</th>
+                <th>@T.ColumnMode</th>
+                <th>@T.ColumnBlockedServices</th>
+                <th>@T.ColumnSchedule</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var c in _clients)
+            {
+                <tr>
+                    <td><strong>@c.Name</strong></td>
+                    <td class="mono wrap">@c.MatchText</td>
+                    <td>
+                        <span class="tag @(c.Policy == "enforce" ? "blocked" : c.Policy == "learn" ? "rewritten" : "neutral")">
+                            @(string.IsNullOrEmpty(c.Policy) ? "open" : c.Policy)
+                        </span>
+                    </td>
+                    <td class="muted">@(c.BlockServices.Count == 0 ? "–" : string.Join(", ", c.BlockServices))</td>
+                    <td class="muted">@(c.Schedules.Count == 0 ? "–" : string.Join(", ", c.Schedules.Select(s => s.Name)))</td>
+                    <td>
+                        <button @onclick="() => Edit(c)" disabled="@_busy">@T.Edit</button>
+                        <button @onclick="() => RemoveAsync(c)" disabled="@_busy">@T.Remove</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="panel">
+        <h2>@(_isNew ? T.NewProfile : T.ProfileTitle(_editing.Name))</h2>
+
+        <dl class="kv" style="grid-template-columns:180px 1fr;gap:14px 16px">
+            <dt>@T.ColumnName</dt>
+            <dd><input type="text" @bind="_editing.Name" disabled="@(!_isNew)" style="width:100%" /></dd>
+
+            <dt>@T.AddressesOrNetworks</dt>
+            <dd>
+                <input type="text" @bind="_editing.MatchText" placeholder="192.168.1.50, 10.0.5.0/24"
+                       style="width:100%" />
+                <span class="muted t-sm">@T.CommaSeparatedNote</span>
+            </dd>
+
+            <dt>@T.ColumnMode</dt>
+            <dd>
+                <select @bind="_editing.Policy">
+                    <option value="open">@T.ModeOpen</option>
+                    <option value="learn">@T.ModeLearn</option>
+                    <option value="enforce">@T.ModeEnforce</option>
+                </select>
+            </dd>
+
+            <dt>@T.BlockServices</dt>
+            <dd>
+                <div style="display:flex;flex-wrap:wrap;gap:6px 14px;max-height:180px;overflow:auto">
+                    @foreach (var service in _services)
+                    {
+                        <label class="muted t-md">
+                            <input type="checkbox"
+                                   checked="@_editing.BlockServices.Contains(service.Key)"
+                                   @onchange="e => ToggleService(service.Key, e)" />
+                            @service.Name
+                        </label>
+                    }
+                </div>
+            </dd>
+
+            <dt>@T.SafeSearch</dt>
+            <dd>
+                <div style="display:flex;flex-wrap:wrap;gap:6px 14px">
+                    @foreach (var provider in _safeSearch)
+                    {
+                        <label class="muted t-md">
+                            <input type="checkbox"
+                                   checked="@_editing.SafeSearch.Contains(provider.Key)"
+                                   @onchange="e => ToggleSafeSearch(provider.Key, e)" />
+                            @provider.Name
+                        </label>
+                    }
+                </div>
+                <span class="muted t-sm">@T.SafeSearchNote</span>
+            </dd>
+        </dl>
+
+        <div class="toolbar" style="margin-top:16px">
+            <button class="primary" @onclick="SaveAsync" disabled="@_busy">@T.Save</button>
+            <button @onclick="() => _editing = null" disabled="@_busy">@T.Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<ManagedClient> _clients = [];
+    private IReadOnlyList<ServiceEntry> _services = [];
+    private IReadOnlyList<SafeSearchProvider> _safeSearch = [];
+    private ManagedClient? _editing;
+    private bool _isNew;
+    private bool _busy;
+    private string? _message;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _services = await Auspex.GetServicesAsync();
+        _safeSearch = await Auspex.GetSafeSearchAsync();
+        await RefreshAsync();
+        await AdoptFromLogAsync();
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            // Do not refresh while somebody is typing - otherwise the
+            // half-finished input vanishes under their hands.
+            if (_busy || _editing is not null) return;
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20));
+    }
+
+    private async Task RefreshAsync() => _clients = await Auspex.GetClientsAsync();
+
+    private void CreateNew()
+    {
+        _isNew = true;
+        _editing = new ManagedClient { Policy = "open" };
+    }
+
+    /// <summary>
+    /// Called from the query log: <c>/devices?create=192.168.1.20</c>.
+    ///
+    /// The address alone would be a poor profile — it changes with the next
+    /// DHCP round, and several times a day under IPv6. So the page asks the
+    /// resolver who is behind the address and binds the profile to the MAC.
+    /// Only when it knows nothing does the address stay as a stopgap.
+    /// </summary>
+    private async Task AdoptFromLogAsync()
+    {
+        var address = System.Web.HttpUtility
+            .ParseQueryString(new Uri(Nav.Uri).Query)["create"];
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            return;
+        }
+
+        // Take the parameter out of the address bar: otherwise reloading the
+        // page creates the same draft a second time.
+        Nav.NavigateTo("/devices", replace: true);
+
+        var who = await Auspex.WhoAsync(address);
+        var name = string.IsNullOrWhiteSpace(who?.Name) ? address : who!.Name!;
+
+        // A profile that already exists is edited rather than created twice -
+        // two profiles of the same name would be a silent fault.
+        var existing = _clients.FirstOrDefault(c =>
+            string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            Edit(existing);
+            _message = T.ProfileExists(name);
+            return;
+        }
+
+        _isNew = true;
+        _editing = new ManagedClient { Name = name, Policy = "open" };
+
+        if (!string.IsNullOrWhiteSpace(who?.Mac))
+        {
+            _editing.Macs = [who!.Mac!];
+            _message = T.ProfileByMac(name, who.Mac!);
+        }
+        else
+        {
+            _editing.Match = [address];
+            _message = T.ProfileByAddress(address);
+        }
+    }
+
+    private void Edit(ManagedClient c)
+    {
+        _isNew = false;
+        // A copy: an abort should not have changed the display already.
+        _editing = c.Copy();
+        _editing.Policy ??= "open";
+    }
+
+    private void ToggleService(string key, ChangeEventArgs e)
+    {
+        if (_editing is null) return;
+        if (e.Value is true)
+        {
+            if (!_editing.BlockServices.Contains(key)) _editing.BlockServices.Add(key);
+        }
+        else
+        {
+            _editing.BlockServices.Remove(key);
+        }
+    }
+
+    private void ToggleSafeSearch(string key, ChangeEventArgs e)
+    {
+        if (_editing is null) return;
+        if (e.Value is true)
+        {
+            if (!_editing.SafeSearch.Contains(key)) _editing.SafeSearch.Add(key);
+        }
+        else
+        {
+            _editing.SafeSearch.Remove(key);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+
+        var error = await Auspex.PutClientAsync(_editing);
+        if (error is null)
+        {
+            _message = T.ProfileSaved(_editing.Name);
+            _editing = null;
+        }
+        else
+        {
+            _message = T.NotSaved(error);
+        }
+
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task RemoveAsync(ManagedClient c)
+    {
+        _busy = true;
+        _message = await Auspex.RemoveClientAsync(c.Name)
+            ? T.ProfileRemoved(c.Name)
+            : T.RemoveFailed;
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

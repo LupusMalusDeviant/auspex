@@ -1,0 +1,173 @@
+@page "/router"
+@rendermode InteractiveServer
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · Router</PageTitle>
+
+    <h1>@T.NavRouter</h1>
+    <p class="sub">@T.RouterIntro</p>
+
+    @if (_error is not null)
+    {
+        <div class="panel"><p class="muted m-0">@_error</p></div>
+    }
+
+    @if (_catalogue is null)
+    {
+        <div class="panel"><p class="muted m-0">@T.Loading</p></div>
+    }
+    else
+    {
+        <div class="panel">
+            <div class="toolbar">
+                <h2 class="m-0">@_catalogue.FriendlyName</h2>
+                <div class="spacer"></div>
+                <span class="muted">@_catalogue.Model</span>
+            </div>
+            <table>
+                <tbody>
+                <tr><td>@T.Services</td><td class="num">@_catalogue.Services.Count</td></tr>
+                <tr><td>@T.Actions</td><td class="num">@_catalogue.ActionCount</td></tr>
+                <tr>
+                    <td>@T.OfWhichChanging</td>
+                    <td class="num">@_catalogue.Services.Sum(s => s.Actions.Count(a => !a.IsReadOnly))</td>
+                </tr>
+                @foreach (var (k, v) in _info.Where(x => !IsLog(x.Key)))
+                {
+                    <tr><td>@Short(k)</td><td class="mono wrap">@Summary(v)</td></tr>
+                }
+                <tr>
+                    <td>@T.Events</td>
+                    <td>
+                        @if (_logLines is { } n)
+                        {
+                            <a href="/router/log">@T.ViewEntries(n)</a>
+                        }
+                        else
+                        {
+                            <a href="/router/log">@T.View</a>
+                            <span class="muted t-sm">@T.Counting</span>
+                        }
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        @if (!_catalogue.IsComplete)
+        {
+            <div class="panel">
+                <p class="warn mb-2">
+                    <strong>@T.CatalogueIncomplete</strong>
+                    @T.CatalogueMissing(_catalogue.Incomplete.Count,
+                                      _catalogue.Services.Count + _catalogue.Incomplete.Count)
+                </p>
+                <p class="muted mb-2">@T.CatalogueWhy</p>
+                <p class="mono muted m-0 t-sm">
+                    @string.Join(", ", _catalogue.Incomplete)
+                </p>
+            </div>
+        }
+
+        @if (Router.ReadOnly)
+        {
+            <div class="panel">
+                <p class="muted m-0">
+                    <strong>@T.ReadOnlyOn</strong>@T.ReadOnlyExplained
+                </p>
+            </div>
+        }
+
+        <div class="panel">
+            <div class="toolbar">
+                <h2 class="m-0">@T.Services</h2>
+                <div class="spacer"></div>
+                <a href="/router/catalog">@T.ViewAllActions</a>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th>@T.ColumnService</th>
+                    <th class="num">@T.Actions</th>
+                    <th class="num">@T.ColumnChanging</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var s in _catalogue.Services.Where(s => s.Actions.Count > 0)
+                    .OrderByDescending(s => s.Actions.Count))
+                {
+                    <tr>
+                        <td><a href="@($"/router/catalog?service={Uri.EscapeDataString(s.ControlUrl)}")">@s.DisplayName</a></td>
+                        <td class="num">@s.Actions.Count</td>
+                        <td class="num">@s.Actions.Count(a => !a.IsReadOnly)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</RouterGate>
+
+@code {
+    private RouterCatalog? _catalogue;
+    private IReadOnlyDictionary<string, string> _info = new Dictionary<string, string>();
+    private string? _error;
+    private int? _logLines;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _catalogue = await Router.GetCatalogAsync();
+            _info = await Router.GetInfoAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = T.RouterUnreachable(ex.Message);
+        }
+    }
+
+    // TR-064 prefixes every output value with "New" - in a table that reads
+    // badly.
+    private static string Short(string name) =>
+        name.StartsWith("New", StringComparison.Ordinal) && name.Length > 3 ? name[3..] : name;
+
+    // Fetching the log and splitting it costs a query of its own to the
+    // router - for a number that stands next to a link. The page must not
+    // wait for it: it appears first, the number follows.
+    protected override async Task OnAfterRenderAsync(bool firstBuild)
+    {
+        if (!firstBuild || _catalogue is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _logLines = (await Router.GetLogAsync()).Count;
+        }
+        catch
+        {
+            // Without a number it simply says "view". No reason to bother the
+            // whole page with an error message.
+            _logLines = 0;
+        }
+
+        StateHasChanged();
+    }
+
+    // The event log comes along as a field of GetInfo - several hundred
+    // messages without a single line break. In a table cell that is a wall
+    // burying everything else on the page. It has a page of its own; here
+    // there is only the link to it.
+    private static bool IsLog(string key) =>
+        key.Contains("Log", StringComparison.OrdinalIgnoreCase);
+
+    // Other fields can turn out unexpectedly long too. Whatever does not fit
+    // in a line is trimmed rather than bursting the table.
+    private static string Summary(string value) =>
+        value.Length > 160 ? value[..160] + " …" : value;
+}

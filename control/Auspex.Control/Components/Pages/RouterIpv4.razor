@@ -1,0 +1,226 @@
+@page "/router/ipv4"
+@rendermode InteractiveServer
+@inject FritzWebClient Web
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · @T.TitleIpv4</PageTitle>
+
+    <h1>@T.TitleIpv4</h1>
+    <p class="sub">@T.Ipv4Intro</p>
+
+    <div class="panel note is-warn">
+        <p class="muted m-0 t-md">@T.Ipv4Warning</p>
+    </div>
+
+    @if (_message is not null)
+    {
+        <div class="panel note @(_failed ? "is-danger" : "is-ok")">
+            <p class="m-0 @(_failed ? "danger" : "ok")">@_message</p>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="toolbar">
+            <h2 class="m-0">@T.CurrentValues</h2>
+            <div class="spacer"></div>
+            <button @onclick="LoadAsync" disabled="@_running">@T.Refresh</button>
+        </div>
+
+        @if (_snapshot is null)
+        {
+            <p class="muted m-0">@(_running ? T.Loading : T.NotReadable)</p>
+        }
+        else
+        {
+            <table class="mb-3">
+                <tbody>
+                <tr>
+                    <td>@T.LocalDns</td>
+                    <td>
+                        <strong class="mono">@_snapshot.LocalDns</strong>
+                        @if (_snapshot.PointsAtTheBox)
+                        {
+                            <span class="muted t-sm">@T.TheBoxItself</span>
+                        }
+                    </td>
+                </tr>
+                <tr><td>@T.BoxAddress</td><td class="mono">@_snapshot.BoxAddress</td></tr>
+                <tr><td>@T.SubnetMask</td><td class="mono">@_snapshot.SubnetMask</td></tr>
+                <tr>
+                    <td>@T.DhcpServer</td>
+                    <td>
+                        <span class="pill @(_snapshot.DhcpOn ? "is-on" : "is-off")">
+                            @(_snapshot.DhcpOn ? T.On : T.Off)
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>@T.DhcpRange</td>
+                    <td class="mono">@_snapshot.DhcpFrom – @_snapshot.DhcpTo</td>
+                </tr>
+                <tr><td>@T.LeaseTime</td><td>@T.Days(_snapshot.LeaseDays)</td></tr>
+                </tbody>
+            </table>
+
+            <p class="muted t-md m-0">@T.FieldsUnchanged(_snapshot.AllFields.Count)</p>
+        }
+    </div>
+
+    @if (_snapshot is not null && !Router.ReadOnly)
+    {
+        <div class="panel">
+            <h2>@T.ChangeDns</h2>
+
+            <div class="field">
+                <label>@T.NewAddress</label>
+                <input @bind="_fresh" />
+            </div>
+
+            <div class="row mb-3">
+                <button @onclick="@(() => _fresh = _auspexAddress)">@T.UseAuspex(_auspexAddress)</button>
+                <button @onclick="@(() => _fresh = _snapshot.BoxAddress)">@T.BackToTheBox(_snapshot.BoxAddress)</button>
+            </div>
+
+            @if (_reachable is false)
+            {
+                <p class="danger mb-2">@T.UnreachableWarning(_fresh)</p>
+            }
+            else if (_reachable is true && _fresh != _snapshot.LocalDns)
+            {
+                <p class="ok t-md mb-2">@T.SomeoneAnswersThere(_fresh)</p>
+            }
+
+            @if (_confirmed)
+            {
+                <p class="danger mb-2">@T.LastWarning(_fresh)</p>
+                <div class="row">
+                    <button class="primary" @onclick="SetAsync" disabled="@_running">
+                        @T.YesSetItNow
+                    </button>
+                    <button @onclick="() => _confirmed = false">@T.Cancel</button>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <button @onclick="CheckAsync"
+                            disabled="@(_running || _fresh.Length == 0 || _fresh == _snapshot.LocalDns)">
+                        @T.CheckReachability
+                    </button>
+                    <button class="primary" @onclick="() => _confirmed = true"
+                            disabled="@(_running || _reachable is not true || _fresh == _snapshot.LocalDns)">
+                        @T.Change
+                    </button>
+                </div>
+                @if (_fresh == _snapshot.LocalDns && _fresh.Length > 0)
+                {
+                    <span class="muted t-md">@T.AlreadySet</span>
+                }
+            }
+        </div>
+    }
+    else if (_snapshot is not null)
+    {
+        <div class="panel">
+            <p class="muted m-0">@T.ReadOnlyNoDns</p>
+        </div>
+    }
+</RouterGate>
+
+@code {
+    private Ipv4Settings? _snapshot;
+    private string _fresh = "";
+    private bool _confirmed;
+    private bool? _reachable;
+    private bool _running;
+    private string? _message;
+    private bool _failed;
+
+    // The address the control plane itself runs at is the best guess for the
+    // resolver - they sit in the same container group.
+    private string _auspexAddress = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _auspexAddress = Environment.GetEnvironmentVariable("AUSPEX_LAN_IP") ?? "";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _running = true;
+        try
+        {
+            _snapshot = await Web.GetIpv4Async();
+            if (_snapshot is null)
+            {
+                _failed = true;
+                _message = T.Ipv4NotRead;
+            }
+            else
+            {
+                _fresh = _snapshot.LocalDns;
+                _reachable = null;
+                if (_auspexAddress.Length == 0)
+                {
+                    // With nothing given from outside: the same /24 as the box,
+                    // but that is a guess - which is why the address stands in
+                    // the button, not in the field.
+                    _auspexAddress = _snapshot.BoxAddress;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _failed = true;
+            _message = T.Unreachable(ex.Message);
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    // Ask first, then offer. The button to change stays locked until a DNS
+    // server has really answered at the new address - a listening port alone
+    // is not enough, a real query is made and the id in the answer checked.
+    private async Task CheckAsync()
+    {
+        _running = true;
+        _reachable = null;
+        try
+        {
+            _reachable = await FritzWebClient.AnswersOnPort53Async(_fresh);
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private async Task SetAsync()
+    {
+        _running = true;
+        _confirmed = false;
+        try
+        {
+            var (ok, text) = await Web.SetLokalerDnsAsync(_fresh);
+            _failed = !ok;
+            _message = text;
+        }
+        catch (Exception ex)
+        {
+            _failed = true;
+            _message = ex.Message;
+        }
+        finally
+        {
+            _running = false;
+        }
+
+        await LoadAsync();
+    }
+}

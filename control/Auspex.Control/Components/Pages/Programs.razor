@@ -1,0 +1,140 @@
+@page "/programs"
+@rendermode InteractiveServer
+@inject Auspex.Control.Services.Geo.ProgramService Report
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Geo
+
+<PageTitle>Auspex · @T.NavPrograms</PageTitle>
+
+<h1>@T.TitlePrograms</h1>
+<p class="sub">@T.ProgramsIntro</p>
+
+<div class="panel note is-warn">
+    @* The limit stands on the page, not in the documentation. Figures here
+       are read as complete unless the page says otherwise, and this sensor
+       sees neither phones nor QUIC. *@
+    <p class="muted m-0 t-md">@T.ProgramsLimit</p>
+</div>
+
+<div class="toolbar">
+    <select @bind="_client" @bind:after="LoadAsync">
+        <option value="">@T.ChooseDevice …</option>
+        @foreach (var (client, device) in _devices)
+        {
+            <option value="@client">@(string.IsNullOrEmpty(device) ? client : $"{device} ({client})")</option>
+        }
+    </select>
+    <select @bind="_hours" @bind:after="LoadAsync">
+        <option value="24">@T.LastHours(24)</option>
+        <option value="168">@T.LastDays(7)</option>
+        <option value="720">@T.LastDays(30)</option>
+    </select>
+    <div class="spacer"></div>
+    @if (_running)
+    {
+        <span class="muted t-md">@T.Loading</span>
+    }
+</div>
+
+@if (string.IsNullOrEmpty(_client))
+{
+    <div class="panel"><p class="muted m-0">@T.ChooseDevice</p></div>
+}
+else if (_profiles.Count == 0 && !_running)
+{
+    <div class="panel"><p class="muted m-0">@T.NoSensorData</p></div>
+}
+else
+{
+    @foreach (var program in _profiles)
+    {
+        <div class="panel">
+            <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+                <h2 class="m-0">@program.Process</h2>
+                <span class="muted t-md">@T.ProgramDomainCount(program.Domains.Count)</span>
+                <span class="muted t-md">· @program.Connections.ToString("N0") @T.ColumnConnections</span>
+                @if (program.UnexplainedAddresses > 0)
+                {
+                    @* The number that matters most on this page: traffic the
+                       resolver never explained. *@
+                    <span class="tag blocked" title="@T.ProgramUnexplainedTitle">
+                        @T.ProgramUnexplained(program.UnexplainedAddresses)
+                    </span>
+                }
+            </div>
+
+            @if (program.Domains.Count == 0)
+            {
+                <p class="muted t-md" style="margin:10px 0 0">@T.ProgramNoDomains</p>
+            }
+            else
+            {
+                <div style="overflow-x:auto;margin-top:10px">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>@T.ColumnDomains</th>
+                            <th style="text-align:right">@T.ColumnConnections</th>
+                            <th style="text-align:right">@T.ColumnAddresses</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var domain in program.Domains.Take(_shown.Contains(program.Process) ? 500 : 12))
+                        {
+                            <tr>
+                                <td class="mono wrap">@domain.Domain</td>
+                                <td style="text-align:right">@domain.Connections.ToString("N0")</td>
+                                <td style="text-align:right" class="muted">@domain.Addresses</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                @if (program.Domains.Count > 12 && !_shown.Contains(program.Process))
+                {
+                    <button @onclick="() => _shown.Add(program.Process)">
+                        @T.ShowAll (@program.Domains.Count)
+                    </button>
+                }
+            }
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<(string Client, string? Device)> _devices = [];
+    private IReadOnlyList<ProgramProfile> _profiles = [];
+    private readonly HashSet<string> _shown = [];
+    private string _client = "";
+    private int _hours = 168;
+    private bool _running;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _devices = await Report.DevicesAsync(DateTime.UtcNow.AddDays(-30));
+        if (_devices.Count == 1)
+        {
+            _client = _devices[0].Client;
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrEmpty(_client))
+        {
+            _profiles = [];
+            return;
+        }
+        _running = true;
+        _shown.Clear();
+        try
+        {
+            _profiles = await Report.ForDeviceAsync(_client, DateTime.UtcNow.AddHours(-_hours));
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+}

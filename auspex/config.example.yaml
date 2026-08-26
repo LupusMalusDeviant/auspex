@@ -1,0 +1,273 @@
+# Auspex - Beispielkonfiguration
+# Kopieren nach config.yaml und anpassen.
+
+# Gezielt binden, nicht auf 0.0.0.0. Hat der Host eine globale IPv6-Adresse,
+# macht ein Wildcard-Bind aus dem Resolver einen offenen Resolver - und der
+# ist ein Werkzeug fuer DNS-Verstaerkungsangriffe. Eine Adresse oder eine
+# Liste; die Liste bindet mehrere gezielt statt alle pauschal.
+listen:
+  # Wer der Resolver des ganzen Netzes wird, muss auch auf IPv6 lauschen.
+  # Sonst fragen Windows-Rechner weiter den Router: sie bevorzugen den per
+  # Router Advertisement bekanntgegebenen DNSv6-Server, und der ist ab Werk
+  # die Fritz!Box selbst. Die Anfragen laufen dann komplett am Filter vorbei,
+  # ohne dass irgendwo etwas fehlschlaegt.
+  #
+  # Gebunden wird die stabile lokale Adresse (ULA, fd00::/8), nicht die
+  # globale: das Praefix vom Anbieter wechselt regelmaessig, die ULA bleibt.
+  # Beispiel: - "[fd00:1234:5678:0:9a90:96ff:febb:5dcc]:53"
+  udp:
+    - "127.0.0.1:53"
+    - "192.168.1.61:53"     # LAN-Adresse dieses Hosts
+    # Tailscale, fuer unterwegs: das Handy laeuft dann auch ausserhalb des
+    # Heimnetzes durch den Filter, ohne offenen Port und ohne Zertifikat -
+    # der WireGuard-Tunnel ist bereits verschluesselt.
+    #
+    # optional: true ist hier keine Bequemlichkeit, sondern noetig. Ein
+    # Listener, der nicht hochkommt, beendet Auspex - und beim Systemstart
+    # kann der Container schneller sein als das Tunnel-Interface. Ohne die
+    # Markierung haette der ganze Haushalt kurz kein DNS. Optionale
+    # Adressen werden im Hintergrund erneut versucht, bis sie da sind.
+    # - address: "100.64.0.5:53"
+    #   optional: true
+  tcp:
+    - "127.0.0.1:53"
+    - "192.168.1.61:53"
+
+  # Verschluesselt fuer Clients. Damit laeuft ein Geraet auch ausserhalb des
+  # Heimnetzes durch den Filter, ohne VPN.
+  # tls:                              # DNS-over-TLS, ueblich Port 853
+  #   - "192.168.1.61:853"
+  # https:                            # DNS-over-HTTPS
+  #   - "192.168.1.61:8443"
+  # cert_file: "/etc/auspex/tls/fullchain.pem"
+  # key_file: "/etc/auspex/tls/privkey.pem"
+  # doh_path: "/dns-query"
+  #
+  # Ohne cert_file/key_file spricht der HTTPS-Listener nur Klartext - dann
+  # gehoert ein Reverse Proxy davor, der TLS beendet. In dem Fall muessen
+  # dessen Netze hier stehen, sonst kommen alle Anfragen mit der Adresse des
+  # Proxys an und die Auswertung je Geraet ist wertlos. Zu weit gefasst darf
+  # die Liste aber auch nicht sein: wem man glaubt, der darf sich eine
+  # beliebige Herkunft ausdenken.
+  # trusted_proxies: ["127.0.0.1", "172.17.0.0/16"]
+
+upstream:
+  # Reihenfolge zaehlt bei strategy: failover.
+  servers:
+    - "https://dns.quad9.net/dns-query"   # DoH
+    - "tls://one.one.one.one:853"         # DoT
+  # Loest die Hostnamen der DoH/DoT-Ziele auf. Ohne das fragt Auspex beim
+  # Start das System - und das zeigt nach der Einrichtung auf Auspex selbst.
+  bootstrap: ["9.9.9.9:53", "1.1.1.1:53"]
+  timeout: "5s"
+  strategy: "failover"        # failover | race
+  # enforce: ein Client kann die Validierung beim Upstream nicht per CD-Bit
+  # abschalten, und wir fragen mit AD=1 nach, ob validiert wurde.
+  # Auspex validiert nicht selbst - wer lokale Validierung will, stellt einen
+  # validierenden Resolver (z.B. Unbound) als Upstream davor.
+  dnssec: "enforce"           # enforce | passthrough
+  failure_threshold: 3
+  failure_cooldown: "30s"
+
+cache:
+  enabled: true
+  max_entries: 100000
+  min_ttl: "30s"              # gegen Domains mit 10s-TTL
+  max_ttl: "24h"
+  negative_ttl: "5m"
+  prefetch: true              # heisse Eintraege vor Ablauf erneuern
+  prefetch_threshold: 0.15    # ab 15% Rest-TTL
+  prefetch_min_hits: 3
+  serve_stale: "1h"           # Upstream tot? Lieber alt als gar nicht
+
+filter:
+  # Eine grosse Liste reicht. Mehrere zu stapeln bringt kaum mehr
+  # Blocking, aber deutlich mehr False Positives.
+  lists:
+    - name: "hagezi-multi-pro"
+      url: "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt"
+    # - name: "oisd-big"
+    #   url: "https://big.oisd.nl/"
+    # Eigene Regeln, die die Control-Plane per Klick schreibt. Der Listen-
+    # mechanismus traegt das bereits - es braucht keinen zusaetzlichen Weg.
+    - name: "eigene-ausnahmen"
+      path: "/var/lib/auspex-shared/allowlist.txt"
+      allow: true
+    - name: "eigene-blocks"
+      path: "/var/lib/auspex-shared/blocklist.txt"
+
+  block_rules:
+    - "||telemetrie.beispiel.de^"
+  allow_rules:
+    - "@@||wichtig.beispiel.de^"
+
+  # nxdomain | zeroip | refused | custom
+  # nxdomain ist der beste Kompromiss: Clients cachen negativ und fragen
+  # nicht im Sekundentakt nach.
+  block_mode: "nxdomain"
+  block_ipv4: "0.0.0.0"
+  block_ipv6: "::"
+  block_ttl: "10s"
+  # Prueft die CNAME-Kette einer Antwort gegen den Regelsatz. Der
+  # verbreitetste Trick gegen DNS-Filter: eine Erstpartei-Subdomain wie
+  # metrics.zeitung.de zeigt per CNAME auf den Tracker. Auf der Blockliste
+  # steht nur das Ziel - ohne diese Pruefung laeuft er durch.
+  check_cname: true
+  # Beantwortet use-application-dns.net mit NXDOMAIN. Firefox deutet das als
+  # "das Netz filtert" und schaltet seine eigene verschluesselte Aufloesung
+  # ab, statt am Resolver vorbeizulaufen.
+  doh_canary: true
+  # Dienste aus dem Katalog fuer alle Clients sperren. "doh-anbieter" zwingt
+  # einen Browser mit manuell eingeschaltetem DoH zurueck auf diesen Resolver.
+  # Der eigene Upstream ist davon nicht betroffen - dessen Hostnamen loest
+  # Auspex ueber den Bootstrap-Resolver auf, nicht ueber den eigenen Filter.
+  block_services: ["doh-anbieter"]
+  # DNS-Rebinding: ein Name aus dem Internet, der mit einer Adresse aus
+  # dem eigenen Netz antwortet. Damit erreicht eine Webseite Router,
+  # Drucker oder Kamera unter ihrer eigenen Herkunft. Ab Werk an.
+  #
+  # Lokale Zonen und rewrites sind nicht betroffen - die werden
+  # beantwortet, bevor die Anfrage nach draussen geht.
+  rebind_protection: true
+  # Zusaetzlich freigegeben, ueber die eingebaute Liste hinaus. Fuer
+  # Entwicklerhelfer wie nip.io, sslip.io oder lvh.me, die absichtlich
+  # auf private Adressen zeigen.
+  # rebind_allow: ["nip.io", "lvh.me"]
+  update_interval: "24h"
+  cache_dir: "var/lists"
+
+# Split-Horizon: interne Namen zeigen auf interne Adressen.
+rewrites:
+  - domain: "*.home.beispiel.de"
+    a: "192.168.1.10"
+    ttl: "5m"
+
+# Aus Client-IPs Geraetenamen machen. Ohne das steht in jedem Fund, jeder
+# Statistik und jedem Alarm eine nackte Adresse.
+# Namen, die nur das Heimnetz kennt. Sobald Auspex der Resolver des Netzes
+# ist, muss es die Aufgabe des Routers mituebernehmen.
+#
+# Ohne das zeigt "fritz.box" auf einen fremden Server: die Domain ist echt
+# und oeffentlich registriert, nach draussen aufgeloest bekommt man die
+# Adresse irgendeines Fremden - und wer dort Router-Zugangsdaten eintippt,
+# hat sie verschenkt. Geraetenamen und die Rueckwaertsaufloesung privater
+# Adressen kennt draussen ohnehin niemand.
+local:
+  zones: ["fritz.box"]
+  # Leer: es gilt hosts.via. Zwei Stellen fuer dieselbe Adresse waeren eine
+  # Einladung, sie auseinanderlaufen zu lassen.
+  via: ""
+  reverse: true
+  timeout: "2s"
+
+hosts:
+  # Geraetenamen. Drei Quellen, in dieser Reihenfolge:
+  #
+  #  1. static      - die Absicht des Betreibers, schlaegt alles
+  #  2. neighbors   - Adresse -> MAC -> Name (siehe unten)
+  #  3. resolve     - Reverse-Lookup beim Router
+  #
+  # Der zweite Weg ist der einzige, der unter IPv6 zuverlaessig traegt:
+  # Windows und Android wechseln ihre temporaeren Adressen taeglich, und
+  # der Router beantwortet dafuer kein Reverse-Lookup - er kennt diese
+  # Adressen nicht, die Geraete wuerfeln sie selbst. Der Kernel des Hosts
+  # kennt sie, weil er im selben Netzsegment steht.
+  #
+  # Braucht network_mode: host. In einem eigenen Netzwerk-Namensraum steht
+  # in der Tabelle nur dieser Namensraum, also fast nichts; Auspex sagt das
+  # dann beim Start.
+  neighbors: true
+  # Rueckwaertsaufloesung fuer bestimmte Bereiche woandershin schicken.
+  #
+  # Der Router beantwortet sein eigenes Netz und kennt nichts darueber
+  # hinaus. Ein Geraet, das ueber einen Tunnel kommt, traegt eine Adresse,
+  # die er nie gesehen hat - es bliebe fuer immer namenlos, und Warten
+  # hilft nicht. Tailscales eigener Resolver beantwortet PTR fuer 100.64/10.
+  #
+  # Laengstes Praefix gewinnt, ein enger Bereich laesst sich also aus einem
+  # weiten herausschneiden.
+  # reverse_via:
+  #   "100.64.0.0/10": "100.100.100.100"
+  # Die Datei schreibt die Steuerebene aus der Geraeteliste des Routers.
+  device_names: "/var/lib/auspex-shared/devices.json"
+  # Feste Zuordnung - schlaegt alles andere, weil sie deine Absicht ist.
+  static:
+    "192.168.1.20": "Arbeitsrechner"
+    "10.0.5.0/24": "IoT-Netz"
+  # Reverse-Lookup gegen den Router. Eine Fritz!Box beantwortet PTR fuer ihre
+  # DHCP-Clients - damit stehen die Namen aus dem Heimnetz-Menue bereit, ohne
+  # sie hier zu pflegen. Laeuft immer im Hintergrund, nie im Anfragepfad.
+  resolve: true
+  via: "192.168.1.1"
+  ttl: "1h"
+  negative_ttl: "10m"
+
+# Profile werden von oben nach unten geprueft, der erste Treffer gewinnt.
+clients:
+  - name: "arbeitsrechner"
+    match: ["192.168.1.20"]
+    allow_rules:
+      - "@@||analytics.arbeitgeber.de^"
+
+  - name: "kinder-tablet"
+    match: ["192.168.1.50", "192.168.1.51"]
+    # Ganze Dienste ueber den eingebauten Katalog sperren, ohne deren
+    # Domains kennen zu muessen. Liste unter GET /api/v1/services.
+    block_services: ["onlyfans", "tinder"]
+    # Gefilterte Suche: schickt die Suchmaschine auf den Rechner, von dem sie
+    # gefilterte Ergebnisse ausliefert. Liste unter GET /api/v1/safesearch.
+    # Eine Bremsschwelle, kein Schloss - ein Browser mit eigenem DNS geht
+    # daran vorbei. Dagegen helfen doh_canary und der Dienst "doh-anbieter".
+    safe_search: ["google", "youtube-strict", "duckduckgo"]
+    schedules:
+      - name: "nachtruhe"
+        days: ["all"]
+        from: "21:00"
+        to: "07:00"
+        # Wirkt nur waehrend des Zeitfensters.
+        block_services: ["youtube", "tiktok", "roblox"]
+      - name: "hausaufgaben"
+        days: ["weekdays"]
+        from: "15:00"
+        to: "17:00"
+        block: ["||twitch.tv^"]
+        # Kommt zu safe_search des Profils dazu, ersetzt es nicht: ein
+        # Zeitfenster soll den Filter verschaerfen, nicht aufheben.
+        safe_search: ["bing"]
+
+  - name: "iot"
+    match: ["10.0.5.0/24"]
+    # policy: "quarantine" sperrt alles fuer dieses Geraet, unabhaengig vom
+    # Gelernten - die Antwort auf einen Befund, kein Dauerzustand.
+    # Ausdrueckliche allow_rules heben sie punktuell auf, sonst kaeme das
+    # Geraet nicht einmal an das, was es zur Reparatur braucht. Die Oberflaeche
+    # setzt sie auf Klick und nimmt sie nach einer Stunde von selbst zurueck.
+    #
+    # Lernmodus in drei Schritten:
+    #   1. policy: "learn"    - ein bis zwei Wochen laufen lassen
+    #   2. auspex -learn-export iot   - Allowlist pruefen und uebernehmen
+    #   3. policy: "enforce"  - alles andere ist ab jetzt dicht
+    policy: "learn"
+    block_rules:
+      - "||telemetrie-hersteller.example^"
+
+# Lernmodus: beobachten, was ein Geraet wirklich braucht, dann dichtmachen.
+learning:
+  dir: "var/learn"
+  # "domain" erlaubt die registrierbare Domain (noetig bei CDNs mit
+  # wechselnden Hostnamen), "exact" nur exakt den beobachteten Namen.
+  granularity: "domain"
+  # Deckel gegen Geraete mit zufaelligen Namen und gegen DNS-Tunneling.
+  max_entries: 5000
+  save_interval: "30s"
+
+querylog:
+  enabled: true
+  size: 10000                 # Ringpuffer im RAM
+  # file: "var/querylog.jsonl"
+  anonymize_clients: false
+
+api:
+  enabled: true
+  listen: "127.0.0.1:5380"
+  # token: "geheim"           # Pflicht, sobald nicht nur auf Loopback gebunden

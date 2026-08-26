@@ -1,0 +1,89 @@
+@page "/backup"
+@rendermode InteractiveServer
+@inject RestoreService Restore
+@inject Auspex.Control.Services.Localization.Strings T
+
+<PageTitle>Auspex · @T.TitleBackup</PageTitle>
+
+<h1>@T.TitleBackup</h1>
+<p class="sub">@T.BackupIntro</p>
+
+<div class="panel">
+    <h2>@T.CreateBackup</h2>
+    <p class="muted">@T.CreateBackupNote</p>
+    <a class="btn primary" href="/backup" style="display:inline-block;text-decoration:none">
+        @T.Download
+    </a>
+</div>
+
+<div class="panel">
+    <h2>@T.RestoreBackup</h2>
+    <p class="muted">@T.RestoreBackupNote</p>
+
+    <div class="toolbar">
+        <InputFile OnChange="SelectAsync" accept=".zip" />
+        @if (_busy)
+        {
+            <span class="muted">@T.Reading</span>
+        }
+    </div>
+
+    @if (_result is not null)
+    {
+        <div class="result @(_result.Ok ? "allowed" : "blocked")" style="margin-top:14px">
+            <p class="mb-2"><strong>@_result.Message</strong></p>
+            @if (_result.Ok)
+            {
+                <dl class="kv">
+                    <dt>@T.CardQueries</dt>
+                    <dd>@T.NewlyApplied(_result.Queries.ToString("N0"))</dd>
+                    <dt>@T.Findings</dt>
+                    <dd>@_result.Findings.ToString("N0")</dd>
+                    <dt>@T.DailyTotals</dt>
+                    <dd>@_result.DailyTotals.ToString("N0")</dd>
+                    <dt>@T.OwnRules</dt>
+                    <dd>@_result.Rules.ToString("N0")</dd>
+                    <dt>@T.NavLists</dt>
+                    <dd>@_result.Lists.ToString("N0")</dd>
+                    <dt>@T.LearnedState</dt>
+                    <dd>@T.NameCount(_result.LearnEntries.ToString("N0"))</dd>
+                </dl>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    // 512 MB: a backup with years of history may be large, but not
+    // unbounded - otherwise one mistake topples the service.
+    private const long MaxBytes = 512L * 1024 * 1024;
+
+    private RestoreResult? _result;
+    private bool _busy;
+
+    private async Task SelectAsync(InputFileChangeEventArgs e)
+    {
+        _busy = true;
+        _result = null;
+        StateHasChanged();
+
+        try
+        {
+            await using var stream = e.File.OpenReadStream(MaxBytes);
+            // Into memory, because ZipArchive needs a seekable source.
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            buffer.Position = 0;
+
+            _result = await Restore.RestoreAsync(buffer);
+        }
+        catch (IOException ex)
+        {
+            _result = new RestoreResult(false, T.FileNotReadable(ex.Message));
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

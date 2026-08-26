@@ -1,0 +1,149 @@
+@page "/impact"
+@rendermode InteractiveServer
+@inject ImpactService Analysis
+@inject Auspex.Control.Services.Localization.Strings T
+
+<PageTitle>Auspex · @T.TitleImpact</PageTitle>
+
+<AnalyticsNav />
+
+<h1>@T.ImpactHeading</h1>
+<p class="sub">@T.ImpactIntro</p>
+
+<div class="panel">
+    <div class="toolbar">
+        <input type="text" placeholder="@T.RuleExample" @bind="_rule"
+               @onkeydown="OnKeyDown" style="min-width:320px" />
+        <select @bind="_hours">
+            <option value="168">@T.LastDays(7)</option>
+            <option value="720">@T.LastDays(30)</option>
+            <option value="2160">@T.LastDays(90)</option>
+        </select>
+        <button class="primary" @onclick="RunAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_rule))">
+            @T.Calculate
+        </button>
+    </div>
+    <p class="muted m-0">@T.FormatsNote</p>
+</div>
+
+@if (_invalid)
+{
+    <div class="panel offline">
+        <p class="muted m-0">@T.NotADnsRule</p>
+    </div>
+}
+else if (_result is not null)
+{
+    <div class="cards">
+        <div class="card">
+            <div class="label">@T.AffectedQueries</div>
+            <div class="value">@_result.Matches.ToString("N0")</div>
+            <div class="hint">@T.RuleKindLabel(_result.Rule.Kind)</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.WouldChange</div>
+            <div class="value">@_result.WouldChange.ToString("N0")</div>
+            <div class="hint">@T.RuleImpact(_result.Rule.IsAllow)</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.NavDevices</div>
+            <div class="value">@_result.Clients</div>
+            <div class="hint">@T.BlockedTodayAlready(_result.AlreadyBlocked.ToString("N0"))</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.Period</div>
+            <div class="value" style="font-size:18px">
+                @(_result.First is { } from ? T.ShortDate(from) : "–")
+                –
+                @(_result.Last is { } until ? T.ShortDate(until) : "–")
+            </div>
+            <div class="hint">@T.FirstToLast</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>@T.ImpactSentence(_result.Rule.IsAllow, _result.WouldChange)</h2>
+        @if (_result.Matches == 0)
+        {
+            <p class="muted m-0">@T.NoMatch</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                <tr>
+                    <th>@T.ColumnDevice</th>
+                    <th class="num">@T.ColumnMatches</th>
+                    <th class="num">@T.ColumnAffected</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var c in _result.TopClients)
+                {
+                    <tr>
+                        <td>
+                            @if (!string.IsNullOrEmpty(c.ClientName))
+                            {
+                                <strong>@c.ClientName</strong>
+                                <br /><span class="mono muted t-sm">@c.Client</span>
+                            }
+                            else
+                            {
+                                <span class="mono">@c.Client</span>
+                            }
+                        </td>
+                        <td class="num">@c.Matches.ToString("N0")</td>
+                        <td class="num">@c.WouldChange.ToString("N0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @if (_result.TopNames.Count > 0)
+    {
+        <div class="panel">
+            <h2>@T.AffectedNames</h2>
+            <table>
+                <thead>
+                <tr><th>@T.ColumnName</th><th class="num">@T.ColumnMatches</th><th class="num">@T.ColumnAffected</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var n in _result.TopNames)
+                {
+                    <tr>
+                        <td class="mono wrap">@n.Name</td>
+                        <td class="num">@n.Matches.ToString("N0")</td>
+                        <td class="num">@n.WouldChange.ToString("N0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private string _rule = "";
+    private int _hours = 720;
+    private ImpactResult? _result;
+    private bool _invalid;
+    private bool _busy;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await RunAsync();
+    }
+
+    private async Task RunAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_rule)) return;
+        _busy = true;
+
+        _result = await Analysis.AnalyzeAsync(_rule.Trim(), TimeSpan.FromHours(_hours));
+        _invalid = _result is null;
+
+        _busy = false;
+    }
+}

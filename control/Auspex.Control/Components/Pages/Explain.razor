@@ -1,0 +1,126 @@
+@page "/explain"
+@rendermode InteractiveServer
+@inject IAuspexClient Auspex
+@inject NavigationManager Nav
+@inject Auspex.Control.Services.Localization.Strings T
+
+<PageTitle>Auspex · @T.TitleWhy</PageTitle>
+
+<h1>@T.WhyHeading</h1>
+<p class="sub">@T.WhyIntro</p>
+
+<div class="panel">
+    <div class="toolbar">
+        <input type="text" placeholder="domain.example" @bind="_domain" @bind:event="oninput"
+               @onkeydown="OnKeyDown"  />
+        <input type="text" placeholder="@T.ClientIpOptional" @bind="_client" style="min-width:180px" />
+        <button class="primary" @onclick="CheckAsync" disabled="@(_busy || string.IsNullOrWhiteSpace(_domain))">
+            @T.Check
+        </button>
+    </div>
+    <p class="muted m-0">@T.WithClientIp</p>
+</div>
+
+@if (_notFound)
+{
+    <div class="panel offline">
+        <p class="muted m-0">@T.DataPlaneGoneShort</p>
+    </div>
+}
+else if (_result is not null)
+{
+    <div class="panel">
+        <div class="result @(_result.Blocked ? "blocked" : "allowed")">
+            <h2 style="margin-bottom:10px">
+                <span class="mono">@_result.Name</span>
+                @if (_result.Blocked)
+                {
+                    <span class="tag blocked" style="margin-left:8px">@T.Blocked</span>
+                }
+                else
+                {
+                    <span class="tag allowed" style="margin-left:8px">@T.Allowed</span>
+                }
+            </h2>
+            <dl class="kv">
+                <dt>@T.Reason</dt>
+                <dd>@_result.Reason</dd>
+
+                @if (!string.IsNullOrEmpty(_result.Rule))
+                {
+                    <dt>@T.Rule</dt>
+                    <dd>
+                        <span class="mono">@_result.Rule</span>
+                        <span class="muted">(@_result.RuleKind)</span>
+                    </dd>
+
+                    <dt>@T.Origin</dt>
+                    <dd>
+                        <span class="mono">@_result.List</span>
+                        @if (_result.Line> 0)
+                        {
+                            <span class="muted">@T.LineNumber(_result.Line)</span>
+                        }
+                    </dd>
+                }
+
+                @if (!string.IsNullOrEmpty(_result.Profile))
+                {
+                    <dt>@T.Profile</dt>
+                    <dd>@_result.Profile</dd>
+                }
+
+                @if (!string.IsNullOrEmpty(_result.Schedule))
+                {
+                    <dt>@T.Schedule</dt>
+                    <dd>@_result.Schedule <span class="muted">@T.CurrentlyActive</span></dd>
+                }
+            </dl>
+        </div>
+    </div>
+}
+
+@code {
+    private string _domain = "";
+    private string _client = "";
+
+    /// <summary>
+    /// Called from the query log: <c>/explain?name=…&amp;client=…</c>.
+    ///
+    /// "Why?" is not a page you visit but a question about one particular
+    /// decision. Whoever asks it in the log has the name in front of them —
+    /// making them type it out here was the detour this page used to force.
+    /// If it arrives with a name, it checks straight away.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        var q = System.Web.HttpUtility.ParseQueryString(new Uri(Nav.Uri).Query);
+        _domain = q["name"] ?? "";
+        _client = q["client"] ?? "";
+        if (_domain.Length > 0)
+        {
+            await CheckAsync();
+        }
+    }
+    private Explanation? _result;
+    private bool _busy;
+    private bool _notFound;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await CheckAsync();
+        }
+    }
+
+    private async Task CheckAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_domain)) return;
+        _busy = true;
+        var client = string.IsNullOrWhiteSpace(_client) ? null : _client.Trim();
+        _result = await Auspex.ExplainAsync(_domain.Trim(), client);
+        _notFound = _result is null;
+        _busy = false;
+    }
+}

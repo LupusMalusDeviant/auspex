@@ -1,0 +1,37 @@
+@inject Auspex.Control.Services.Localization.Strings T
+
+@* The class names and the ids belong to Blazor: the script behind it looks
+   for exactly those and shows a different paragraph depending on state. So
+   only the text inside them is changed. *@
+
+<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
+
+<dialog id="components-reconnect-modal" data-nosnippet>
+    <div class="components-reconnect-container">
+        <div class="components-rejoining-animation" aria-hidden="true">
+            <div></div>
+            <div></div>
+        </div>
+        <p class="components-reconnect-first-attempt-visible">
+            @T.Reconnecting
+        </p>
+        <p class="components-reconnect-repeated-attempt-visible">
+            @T.ReconnectBefore<span id="components-seconds-to-next-attempt"></span>@T.ReconnectAfter
+        </p>
+        <p class="components-reconnect-failed-visible">
+            @T.ReconnectFailed
+        </p>
+        <button id="components-reconnect-button" class="components-reconnect-failed-visible">
+            @T.TryAgain
+        </button>
+        <p class="components-pause-visible">
+            @T.SessionPaused
+        </p>
+        <p class="components-resume-failed-visible">
+            @T.SessionResumeFailed
+        </p>
+        <button id="components-resume-button" class="components-pause-visible components-resume-failed-visible">
+            @T.Resume
+        </button>
+    </div>
+</dialog>

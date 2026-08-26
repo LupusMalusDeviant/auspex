@@ -1,0 +1,380 @@
+@page "/querylog"
+@rendermode InteractiveServer
+@inject IAuspexClient Auspex
+@inject IRuleWriter Rules
+@inject NavigationManager Nav
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleQueryLog</PageTitle>
+
+<h1>@T.TitleQueryLog</h1>
+<p class="sub">
+    @T.QueryLogIntro
+    @* The keys themselves stand there untranslated: j and k sit at a place
+       on the keyboard, not in a language. Only what they do changes. *@
+    <span class="keys">
+        <kbd>j</kbd><kbd>k</kbd> @T.KeyMove ·
+        <kbd>f</kbd> @T.KeyAllow · <kbd>b</kbd> @T.KeyBlock ·
+        <kbd>w</kbd> @T.KeyWhy
+    </span>
+</p>
+
+@if (_message is not null)
+{
+    <div class="panel"><p class="muted m-0">@_message</p></div>
+}
+
+<div class="toolbar">
+    <select @bind="_device">
+        <option value="">@T.AllDevices</option>
+        @foreach (var g in Devices)
+        {
+            <option value="@g">@g</option>
+        }
+    </select>
+    <select @bind="_filter">
+        <option value="">@T.AllDecisions</option>
+        <option value="blocked">@T.OnlyBlocked</option>
+        <option value="allowed">@T.OnlyAllowed</option>
+        <option value="rewritten">@T.OnlyRewritten</option>
+        <option value="error">@T.OnlyErrors</option>
+    </select>
+    <select @bind="_limit" @bind:after="RefreshAsync">
+        <option value="50">@T.QuerySelection("50")</option>
+        <option value="200">@T.QuerySelection("200")</option>
+        <option value="1000">@T.QuerySelection(1000.ToString("N0"))</option>
+    </select>
+    <label class="check">
+        <input type="checkbox" @bind="_live" /> @T.Live
+    </label>
+    <div class="spacer"></div>
+    @if (_queries > 0)
+    {
+        <span class="mono muted t-xs">
+            @T.QueryLogTally(_queries.ToString("N0"), _rows.ToString("N0"))
+            @if (_blockedShare > 0)
+            {
+                <text>@T.QueryLogBlockedShare(_blockedShare)</text>
+            }
+        </span>
+    }
+    <button @onclick="RefreshAsync">@T.Refresh</button>
+</div>
+
+@if (Stripe.Count == 0)
+{
+    <div class="panel">
+        <p class="muted">@T.NoEntries</p>
+    </div>
+}
+else
+{
+    @* Deliberately still a table and not a grid of divs: a log is tabular,
+       and screen readers only announce column headers with a real table. The
+       ruler is built through the cells, not against them. *@
+    <div class="ruler">
+        <table class="stream">
+            <caption class="sr-only">@T.QueryLogCaption</caption>
+            <thead>
+            <tr>
+                <th scope="col" class="sp-time">@T.ColumnTime</th>
+                <th scope="col"><span class="sr-only">@T.ColumnDecision</span></th>
+                <th scope="col">@T.ColumnQuery</th>
+                <th scope="col"><span class="sr-only">@T.ColumnActions</span></th>
+            </tr>
+            </thead>
+            <tbody>
+            @{
+                var lastSecond = "";
+            }
+            @foreach (var g in Stripe)
+            {
+                var newTick = g.Sekunde != lastSecond;
+                lastSecond = g.Sekunde;
+                var e = g.Vertreter;
+
+                <tr class="@(newTick ? "beat" : null)">
+                    <td class="sp-time mono">
+                        @if (newTick)
+                        {
+                            @g.Sekunde
+                        }
+                        else
+                        {
+                            @* Empty but present: the column stays aligned, and
+                               screen readers do not read out a time that is
+                               not there. *@
+                            <span class="sr-only">@T.SameSecond</span>
+                        }
+                    </td>
+
+                    <td class="sp-gutter">
+                        <span class="gutter @DayClass(e.Action)"
+                              title="@Decision(e)"></span>
+                    </td>
+
+                    <td class="sp-content">
+                        <div class="headline">
+                            <span class="mono name">@e.Name</span>
+                            @if (g.Types.Count > 0)
+                            {
+                                <span class="types mono">@string.Join(" · ", g.Types)</span>
+                            }
+                            @if (g.Count > 1)
+                            {
+                                <span class="multiple" title="@T.RepeatedTitle(g.Count)">
+                                    @for (var i = 0; i < Math.Min(g.Count, 6); i++)
+                                    {
+                                        <i></i>
+                                    }
+                                    @if (g.Count > 6)
+                                    {
+                                        <em>@g.Count</em>
+                                    }
+                                </span>
+                            }
+                        </div>
+
+                        <div class="below mono">
+                            <span class="@DayClass(e.Action)-text">@Decision(e)</span>
+                            @if (!string.IsNullOrEmpty(e.Rule))
+                            {
+                                <text> · </text><b>@e.Rule</b>
+                                @if (!string.IsNullOrEmpty(e.List))
+                                {
+                                    @* The list gets a fixed tone -
+                                       "who blocked this?" is the most common
+                                       question while skimming. *@
+                                    <text>@T.FromList</text>
+                                    <span class="list-mark t@(QueryGrouping.ListTone(e.List))">@e.List</span>
+                                }
+                            }
+                            @if (!string.IsNullOrEmpty(e.Cname))
+                            {
+                                <text>@T.ViaCnameTo</text><b>@e.Cname</b>
+                            }
+                            @if (!string.IsNullOrEmpty(e.Schedule))
+                            {
+                                <text> · @e.Schedule</text>
+                            }
+                            @if (!string.IsNullOrEmpty(e.Error))
+                            {
+                                <text> · @e.Error</text>
+                            }
+                            @if (e.Validated)
+                            {
+                                <text> · </text><span title="@T.SignedTitle">@T.Signed</span>
+                            }
+                            <text> · </text>@g.MaxMs.ToString("N1")<text> ms</text>
+                        </div>
+
+                        @if (string.IsNullOrEmpty(_device))
+                        {
+                            @* Only without a device filter: whoever has already
+                               picked a device knows whose rows they are
+                               reading. *@
+                            <div class="below mono device">
+                                @Device(e)
+                                @if (!string.IsNullOrEmpty(e.ClientName))
+                                {
+                                    <span class="address"> @e.Client</span>
+                                }
+                                @if (!string.IsNullOrEmpty(e.Profile) && e.Profile != e.ClientName)
+                                {
+                                    <text>@T.ProfilePrefix@e.Profile</text>
+                                }
+                            </div>
+                        }
+                    </td>
+
+                    <td class="sp-action">
+                        @* data-action names WHICH action the button is.
+                           ruler.js used to find the buttons by their
+                           caption, and I had noted that as an advantage: no
+                           second route into the same action. The route is
+                           still the same - exactly this button gets clicked -
+                           but the caption is no good as an identifier: in
+                           English it says "allow", and the f key would have
+                           grasped at nothing. An attribute naming the action
+                           changes with no language. *@
+                        <div class="row-actions">
+                            @if (Rules.Enabled && e.Action is "allowed" or "blocked")
+                            {
+                                @* The chamfer carries the meaning: cut at the top
+                                   right opens, cut at the bottom left closes. *@
+                                <button class="@(e.Action == "blocked" ? "opens" : "closes")"
+                                        data-action="@(e.Action == "blocked" ? "allow" : "block")"
+                                        @onclick="() => ToggleAsync(e)" disabled="@_busy">
+                                    @(e.Action == "blocked" ? T.Allow : T.Block)
+                                </button>
+                            }
+                            @if (string.IsNullOrEmpty(e.Profile))
+                            {
+                                <button class="leads" data-action="profile"
+                                        title="@T.CreateProfileTitle"
+                                        @onclick="() => CreateAsDevice(e)">
+                                    @T.CreateProfile
+                                </button>
+                            }
+                            <button class="leads" data-action="why" title="@T.WhyTitle"
+                                    @onclick="() => Why(e)">@T.Why</button>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<QueryLogEntry> _entries = [];
+    private Timer? _timer;
+    private string _filter = "";
+    private string _device = "";
+    private int _limit = 200;
+    private bool _live = true;
+    private bool _busy;
+    private string? _message;
+
+    private int _queries;
+    private int _rows;
+    private int _blockedShare;
+
+    /// <summary>
+    /// A device, not an address. The same device turns up with IPv4 and with
+    /// rotating IPv6 privacy addresses; filtering by address therefore showed
+    /// a different slice of the same device depending on the time of day. The
+    /// name is what stays stable.
+    /// </summary>
+    private static string Device(QueryLogEntry e) => QueryGrouping.Device(e);
+
+    private IEnumerable<string> Devices =>
+        _entries.Select(Device).Distinct().OrderBy(g => g, StringComparer.CurrentCultureIgnoreCase);
+
+    private IEnumerable<QueryLogEntry> Filtered
+    {
+        get
+        {
+            var q = _entries.AsEnumerable();
+            if (!string.IsNullOrEmpty(_filter))
+            {
+                q = q.Where(e => e.Action == _filter);
+            }
+            if (!string.IsNullOrEmpty(_device))
+            {
+                q = q.Where(e => Device(e) == _device);
+            }
+            return q;
+        }
+    }
+
+    private IReadOnlyList<QueryGroup> Stripe => QueryGrouping.Group(Filtered);
+
+    private string Decision(QueryLogEntry e) => e.Action switch
+    {
+        "blocked" => T.DecisionBlocked(e.Rcode),
+        "allowed" => e.Source switch
+        {
+            "cache" => T.DecisionFromCache,
+            "stale" => T.DecisionStale,
+            "lokal" => T.DecisionLocal,
+            _ => T.DecisionAllowed,
+        },
+        // Not just "rewritten": a search that suddenly returns different
+        // results is exactly the kind of thing somebody has to be able to
+        // look up, and "rewritten" alone does not say why.
+        "rewritten" => e.Source == "safesearch" ? T.DecisionSafeSearch : T.DecisionRewritten,
+        "error" => T.DecisionError(e.Rcode),
+        _ => e.Action,
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            if (!_live) return;
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+    }
+
+    /// <summary>
+    /// The question is asked where it arises — with name and device already
+    /// filled in.
+    /// </summary>
+    private void Why(QueryLogEntry e) =>
+        Nav.NavigateTo($"/explain?name={Uri.EscapeDataString(e.Name)}"
+                       + $"&client={Uri.EscapeDataString(e.Client)}");
+
+    /// <summary>
+    /// From the log into the device profile. The address goes along as a
+    /// parameter; the name and the MAC are fetched by the devices page itself
+    /// from the resolver, because only that knows the neighbour table. A
+    /// profile on the MAC survives the next DHCP change, one on the address
+    /// does not.
+    /// </summary>
+    private void CreateAsDevice(QueryLogEntry e) =>
+        Nav.NavigateTo($"/devices?create={Uri.EscapeDataString(e.Client)}");
+
+    private async Task RefreshAsync()
+    {
+        _entries = await Auspex.GetQueryLogAsync(_limit);
+        Count();
+    }
+
+    /// <summary>
+    /// Once per refresh rather than on every build: <c>Group</c> groups the
+    /// whole list, and the header would otherwise trigger that again on every
+    /// key press.
+    /// </summary>
+    private void Count()
+    {
+        var filtered = Filtered.ToList();
+        _queries = filtered.Count;
+        _rows = Stripe.Count;
+        _blockedShare = _queries == 0
+            ? 0
+            : (int)Math.Round(100.0 * filtered.Count(e => e.Action == "blocked") / _queries);
+    }
+
+    /// <summary>
+    /// Writes our own rule for exactly this name. Deliberately the name and
+    /// not the registrable domain: whoever wants to block a single telemetry
+    /// address does not want to block the whole provider.
+    /// </summary>
+    private async Task ToggleAsync(QueryLogEntry e)
+    {
+        _busy = true;
+        _live = false; // otherwise the refresh overwrites the feedback
+
+        var blocking = e.Action != "blocked";
+        var rule = blocking ? $"||{e.Name}^" : $"@@||{e.Name}^";
+        var destination = blocking ? RuleTarget.Block : RuleTarget.Allow;
+        var reason = T.RuleReason(e.ClientName ?? e.Client);
+
+        var result = await Rules.AddAsync(rule, reason, destination);
+        _message = result switch
+        {
+            { Written: true, Reloaded: true } => T.RuleApplied(rule),
+            { Written: true, Reloaded: false } => T.RuleWrittenButOffline(rule),
+            _ => T.RuleFailed(result.Error),
+        };
+
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private static string DayClass(string action) => action switch
+    {
+        "blocked" => "blocked",
+        "allowed" => "allowed",
+        "rewritten" => "rewritten",
+        "error" => "error",
+        _ => "neutral",
+    };
+
+    public void Dispose() => _timer?.Dispose();
+}

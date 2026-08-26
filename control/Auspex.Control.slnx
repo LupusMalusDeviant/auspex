@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Auspex.Control.Tests/Auspex.Control.Tests.csproj" />
+  <Project Path="Auspex.Control/Auspex.Control.csproj" />
+</Solution>

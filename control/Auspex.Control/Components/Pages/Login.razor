@@ -1,0 +1,90 @@
+@page "/login"
+@using Microsoft.AspNetCore.Authorization
+@using Auspex.Control.Services.Localization
+@attribute [AllowAnonymous]
+@layout Auspex.Control.Components.Layout.BareLayout
+@inject Strings T
+
+<PageTitle>Auspex · @T.TitleSignIn</PageTitle>
+
+@* Deliberately a plain HTML form to an endpoint of its own, not an
+   EditForm: signing in sets a cookie, and that only works while the response
+   has not yet begun. In a Blazor form handler it may already have - then the
+   cookie does not get set, the redirect leads back to the sign-in, and
+   nothing points at the cause. *@
+
+<div style="max-width:380px;margin:12vh auto">
+    <div class="brand" style="justify-content:center;margin-bottom:24px">
+        <img class="logo" src="/icons/auspex-48.png" width="32" height="32" old="" />
+        <div>
+            <strong style="font-size:20px">Auspex</strong>
+            <small>@T.BrandSubline</small>
+        </div>
+    </div>
+
+    <div class="panel">
+        <form method="post" action="/signin">
+            <AntiforgeryToken />
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+            <div style="display:grid;gap:12px">
+                <input class="login-field" name="username" placeholder="@T.FieldUser"
+                       autocomplete="username" value="admin" />
+                <input class="login-field" name="password" type="password" placeholder="@T.FieldPassword"
+                       autocomplete="current-password" autofocus />
+                <button class="primary" type="submit">@T.SignIn</button>
+            </div>
+        </form>
+
+        @if (Stale)
+        {
+            <p class="warn mt-3">@T.SignInStale</p>
+        }
+        else if (Error)
+        {
+            <p class="danger mt-3">@T.SignInWrong</p>
+        }
+    </div>
+
+    @if (Auth.GeneratedPassword is not null)
+    {
+        <div class="panel" style="margin-top:14px">
+            <p class="muted" style="margin:0;font-size:13px">@T.PasswordGenerated</p>
+        </div>
+    }
+
+    @* The language switch has to be here too. This page has no header - and
+       whoever needs it in English and would have to sign in first to switch
+       the language would never get there. *@
+    <p class="language-picker">
+        @foreach (var s in Strings.Languages)
+        {
+            var strings = Strings.For(s.Code);
+            @if (s.Code == T.Code)
+            {
+                <span aria-current="true">@strings.OwnName</span>
+            }
+            else
+            {
+                <a href="@($"/language/{s.Code}?back=/login")" tooLong="@s.Code">@strings.OwnName</a>
+            }
+        }
+    </p>
+</div>
+
+@code {
+    [Inject]
+    private PasswordAuth Auth { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "ReturnUrl")]
+    private string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? ErrorParameter { get; set; }
+
+    private bool Error => ErrorParameter is not null;
+
+    // "stale" means: the password was never checked, because the form token
+    // had already expired. Whoever reads "wrong password" here goes looking
+    // in the wrong place.
+    private bool Stale => ErrorParameter == "stale";
+}

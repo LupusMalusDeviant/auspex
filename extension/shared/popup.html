@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- lang says de and is set by texts.js as soon as the remembered language has
+     been read. A fixed value would be wrong for screen readers, and an empty
+     one would be too. -->
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <img class="logo" src="icons/48.png" width="26" height="26" alt="" />
+    <div>
+      <strong>Auspex</strong>
+      <small id="device" data-t="loading">wird geladen …</small>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" hidden></div>
+
+  <section id="page">
+    <h2 data-t="onThisPage">Auf dieser Seite gescheitert</h2>
+    <div id="pageList" class="list"></div>
+    <p id="pageEmpty" class="empty" data-t="nothingFailed">
+      Auf dieser Seite ist nichts an der Namensauflösung gescheitert.
+    </p>
+  </section>
+
+  <section id="running" hidden>
+    <h2 data-t="runningNow">Läuft gerade</h2>
+    <div id="runningList" class="list"></div>
+  </section>
+
+  <section id="recent">
+    <h2><span data-t="recentlyBlocked">Zuletzt geblockt</span>
+      <small data-t="thisDevice">(dieses Gerät)</small></h2>
+    <div id="recentList" class="list"></div>
+  </section>
+
+  <footer>
+    <a href="#" id="toSettings" data-t="settings">Einstellungen</a>
+    <span class="spacer"></span>
+    <a href="#" id="toDashboard" data-t="dashboard">Dashboard</a>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

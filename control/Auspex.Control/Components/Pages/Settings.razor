@@ -1,0 +1,547 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject IRouterSettingsStore Store
+@inject IExtensionTokenStore Token
+@inject ExtensionPackage Package
+@inject IRouterAdmin Router
+@inject IJSRuntime JS
+@inject Auspex.Control.Services.Extension.SensorPackage Sensor
+@inject Auspex.Control.Services.Localization.Strings T
+@inject IAppearanceStore Appearance
+@inject Prerequisites Parts
+@implements IAsyncDisposable
+@using Auspex.Control.Services.Router
+@using Auspex.Control.Services.Extension
+
+<PageTitle>Auspex · @T.TitleSettings</PageTitle>
+
+<h1>@T.TitleSettings</h1>
+<p class="sub">@T.SettingsIntro</p>
+
+@* Right at the top, because it answers the question somebody has before
+   they set anything: what is even here? An empty column elsewhere looks
+   like "there is nothing here" - here it says that it is empty because a
+   part is missing. *@
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.PartsTitle</h2>
+    </div>
+
+    <p class="muted mb-3">@T.PartsIntro</p>
+
+    @if (_parts is null)
+    {
+        <p class="muted m-0">@T.Loading</p>
+    }
+    else
+    {
+        <table>
+            <tbody>
+                @foreach (var part in _parts)
+                {
+                    <tr>
+                        <td><strong>@T.PartName(part.Key)</strong></td>
+                        <td>
+                            <span class="pill @StateClass(part.State)">@StateText(part.State)</span>
+                            @if (part.Detail is { Length: > 0 } detail)
+                            {
+                                <span class="muted t-xs mono">@detail</span>
+                            }
+                        </td>
+                        <td class="muted t-md">
+                            @T.PartAdds(part.Key)
+                            @if (part.State != PartState.Active)
+                            {
+                                <br /><span class="t-xs">@T.PartHowTo(part.Key)</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.NavRouter</h2>
+        <div class="spacer"></div>
+        @if (Store.Current.Configured)
+        {
+            <span class="pill is-on">@T.Connected</span>
+        }
+        else
+        {
+            <span class="pill">@T.NoAccount</span>
+        }
+    </div>
+
+    @if (Store.FromEnvironment)
+    {
+        <p class="muted m-0">@T.AccessFromEnvironment</p>
+    }
+    else
+    {
+        <p class="muted mb-4">@T.RouterAccountHowTo</p>
+
+        @if (_message is not null)
+        {
+            <div class="note @(_failed ? "is-danger" : "is-ok") mb-4">
+                <p class="m-0 @(_failed ? "danger" : "ok")">@_message</p>
+            </div>
+        }
+
+        <div class="split mb-3">
+            <div class="field">
+                <label>@T.RouterAddress</label>
+                <input @bind="_host" />
+            </div>
+            <div class="field">
+                <label>@T.UserName</label>
+                <input @bind="_user" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label>@T.FieldPassword</label>
+            <input type="password" @bind="_password" />
+        </div>
+
+        <label class="check mb-3">
+            <input type="checkbox" @bind="_readOnly" />
+            @T.ReadOnlyToggle
+        </label>
+
+        <div class="row">
+            <button class="primary" @onclick="SaveAsync" disabled="@(_running || !Complete)">
+                @(_running ? T.Checking : T.SaveAndConnect)
+            </button>
+            @if (Store.Current.Configured)
+            {
+                @if (_removing)
+                {
+                    <button @onclick="Remove">@T.ReallyRemove</button>
+                    <button @onclick="() => _removing = false">@T.Cancel</button>
+                }
+                else
+                {
+                    <button @onclick="() => _removing = true">@T.RemoveAccount</button>
+                }
+            }
+        </div>
+    }
+</div>
+
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.BrowserExtension</h2>
+        <div class="spacer"></div>
+        @if (_installed is true)
+        {
+            <span class="pill is-on">@T.InstalledHere</span>
+        }
+        else if (_installed is false)
+        {
+            <span class="pill">@T.NotInstalledHere</span>
+        }
+        @if (Token.Present)
+        {
+            <span class="pill is-on">@T.TokenPresent</span>
+        }
+        else
+        {
+            <span class="pill">@T.NoToken</span>
+        }
+    </div>
+
+    <p class="muted mb-3">@T.ExtensionWhatFor</p>
+
+    @if (_newToken is not null)
+    {
+        <div class="note is-ok mb-3">
+            <p class="mb-2"><strong>@T.CopyOnce</strong></p>
+            <pre class="block">@_newToken</pre>
+        </div>
+    }
+
+    <div class="row">
+        <button class="primary" @onclick="NewTokenAsync" disabled="@_running">
+            @(Token.Present ? T.CreateNewToken : T.CreateToken)
+        </button>
+        @if (Token.Present)
+        {
+            @if (_deleteToken)
+            {
+                <button @onclick="DeleteToken">@T.ReallyRevoke</button>
+                <button @onclick="() => _deleteToken = false">@T.Cancel</button>
+            }
+            else
+            {
+                <button @onclick="() => _deleteToken = true">@T.Revoke</button>
+            }
+        }
+    </div>
+
+    @if (Token.Present && Token.Created is { } wann)
+    {
+        <p class="muted t-md mt-3 m-0">@T.TokenCreatedOn(T.LongDateTime(wann))</p>
+    }
+
+    @if (_installed is false)
+    {
+        <div class="note mt-3">
+            <p class="mb-2">
+                <strong>@T.NotInstalledTitle</strong>
+                @T.TokenAppliesEverywhere
+            </p>
+
+            @if (Package.Available)
+            {
+                <p class="mb-2">@T.GetPackage</p>
+                <div class="row mb-3">
+                    <a class="btn opens" href="/api/extension/package/chrome" download>Chrome / Edge</a>
+                    <a class="btn opens" href="/api/extension/package/firefox" download>Firefox</a>
+                    @if (Package.Version() is { Length: > 0 } v)
+                    {
+                        <span class="muted t-md">@T.VersionLabel(v)</span>
+                    }
+                </div>
+                <p class="mb-2"><strong>@T.ThenColon</strong></p>
+            }
+
+            <ol class="mb-2">
+                @if (Package.Available)
+                {
+                    <li>@T.StepUnpack</li>
+                }
+                else
+                {
+                    <li>@T.StepBuildBundle</li>
+                }
+                <li>@Instructions</li>
+                <li>@T.StepEnterToken</li>
+            </ol>
+
+            <div class="row">
+                <button class="primary" @onclick="CopyAddressAsync">
+                    @(_copied ? T.AddressCopied : T.CopyAddress)
+                </button>
+                <code class="mono">@_base</code>
+            </div>
+
+            <p class="muted t-md mt-2 m-0">@T.NoDirectLink</p>
+        </div>
+    }
+    else if (_installed is true && _version is not null)
+    {
+        <p class="muted t-md mt-3 m-0">@T.ExtensionRunning(_version)</p>
+    }
+</div>
+
+@* The sensor. A section of its own and not next to the extension: both
+   report with the same token, but one sits in the browser and sees a page,
+   the other in the operating system and sees every program. Merging them
+   would blur the difference that matters. *@
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.SensorTitle</h2>
+        <div class="spacer"></div>
+        @if (!Sensor.Available)
+        {
+            <span class="pill">@T.NotInstalledHere</span>
+        }
+    </div>
+
+    <p class="muted mb-3">@T.SensorWhatFor</p>
+
+    <div class="note is-warn mb-3">
+        <p class="muted m-0 t-md">@T.SensorLimit</p>
+    </div>
+
+    @if (Sensor.Available)
+    {
+        <div class="row mb-3">
+            <a class="btn opens" href="/api/sensor/package" download>
+                @T.GetSensor(Size(Sensor.Size))
+            </a>
+        </div>
+
+        <p class="mb-2"><strong>@T.SensorSteps</strong></p>
+        <ol class="mb-3">
+            <li>@T.SensorStep1</li>
+            <li>@T.SensorStep2</li>
+            <li>@T.SensorStep3</li>
+        </ol>
+
+        <p class="muted t-md">@T.SensorRights</p>
+        <p class="muted t-md m-0 mono">@T.SensorRemove</p>
+    }
+    else
+    {
+        <p class="muted m-0">@T.SensorMissing</p>
+    }
+</div>
+
+@* The time zone stands here and not with the colours: it is not a matter
+   of taste. It decides which clock time appears on an event and whether a
+   finding counts as night-time. *@
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.TimeZoneTitle</h2>
+    </div>
+
+    <p class="muted mb-3">@T.TimeZoneExplained</p>
+
+    <div class="row mb-2">
+        <select value="@(Appearance.Current.TimeZone ?? "")"
+                @onchange="ChooseTimeZone">
+            <option value="">@T.TimeZoneDefault(TimeZoneInfo.Local.Id)</option>
+            @foreach (var (name, label) in Auspex.Control.Services.Localization.DisplayTime.Selectable())
+            {
+                <option value="@name">@label</option>
+            }
+        </select>
+    </div>
+
+    <p class="muted t-md m-0">
+        @T.TimeZoneInEffect(
+            Auspex.Control.Services.Localization.DisplayTime.Zone.Id,
+            T.LongDateTime(DateTimeOffset.UtcNow))
+    </p>
+</div>
+
+@if (Store.Current.Configured)
+{
+    <div class="panel note is-warn">
+        <p class="muted m-0 t-md">
+            <strong>@T.WhatThisAccountMeansTitle</strong>@T.WhatThisAccountMeans
+        </p>
+    </div>
+}
+
+@code {
+    private string _host = "";
+    private string _user = "";
+    private string _password = "";
+    private bool _readOnly;
+    private bool _running;
+    private bool _removing;
+    private bool _deleteToken;
+    private string? _newToken;
+    private string? _message;
+    private bool _failed;
+    private IReadOnlyList<Part>? _parts;
+
+    private string StateText(PartState state) => state switch
+    {
+        PartState.Active => T.PartActive,
+        PartState.Idle => T.PartIdle,
+        _ => T.PartMissing,
+    };
+
+    // Colour carries a statement here and not a mood: what is missing is
+    // not broken - it is simply not there.
+    private static string StateClass(PartState state) => state switch
+    {
+        PartState.Active => "is-ok",
+        PartState.Idle => "is-warn",
+        _ => "",
+    };
+
+    /// <summary>
+    /// Takes the chosen zone. The empty value is not an error but the
+    /// withdrawal of the choice: then the server's zone applies again.
+    /// </summary>
+    private void ChooseTimeZone(ChangeEventArgs e)
+    {
+        Appearance.SetTimeZone(e.Value?.ToString());
+        _message = T.TimeZoneSaved;
+        _failed = false;
+    }
+
+    /// <summary>
+    /// File size in readable units. Steps of a thousand: this is a download
+    /// size, and every browser counts it that way.
+    /// </summary>
+    private static string Size(long bytes) =>
+        bytes >= 1_000_000 ? $"{bytes / 1_000_000.0:N0} MB"
+        : bytes >= 1_000 ? $"{bytes / 1_000.0:N0} kB"
+        : $"{bytes} B";
+
+    private bool Complete =>
+        _host.Trim().Length > 0 && _user.Trim().Length > 0 && _password.Length > 0;
+
+    // Whether the extension sits in THIS browser. Three states: null means
+    // "not asked yet" - before the first answer both "missing" and "present"
+    // would be guesses, and either would stand briefly wrong on the screen.
+    private bool? _installed;
+    private string? _version;
+    private string _browser = "unbekannt";
+    private string _base = "";
+    private bool _copied;
+    private IJSObjectReference? _js;
+
+    /// <summary>
+    /// The route for loading it, depending on the browser. Chromium
+    /// derivatives share one, Firefox has its own; everything else gets both
+    /// named rather than guessed at.
+    /// </summary>
+    private MarkupString Instructions => new(T.LoadingInstructions(_browser));
+
+    protected override async Task OnAfterRenderAsync(bool firstBuild)
+    {
+        if (!firstBuild)
+        {
+            return;
+        }
+
+        try
+        {
+            _js = await JS.InvokeAsync<IJSObjectReference>("import", "./extension.js");
+            _version = await _js.InvokeAsync<string?>("version");
+            _browser = await _js.InvokeAsync<string>("browser");
+            _base = await _js.InvokeAsync<string>("base");
+            _installed = _version is not null;
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone while we were asking. Not an error.
+            return;
+        }
+        catch (Exception)
+        {
+            // Without an answer, better to claim nothing than the wrong thing:
+            // if it stays null the page shows neither "installed" nor the
+            // setup.
+            _installed = null;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task CopyAddressAsync()
+    {
+        if (_js is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _copied = await _js.InvokeAsync<bool>("copy", _base);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Nothing to do - the address to select stands right next to it.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_js is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _js.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // When the tab is closed that is the normal case.
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        var now = Store.Current;
+        _host = now.Host;
+        _user = now.User;
+        _readOnly = now.ReadOnly;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _parts = await Parts.AllAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _running = true;
+        _message = null;
+        try
+        {
+            await Store.SaveAsync(_host, _user, _password, _readOnly);
+
+            // Try it straight away rather than only saving. Credentials that are
+            // wrong otherwise only show when somebody opens the router
+            // section - and what stands there then is an error message with
+            // no connection to what was entered here.
+            var catalogue = await Router.GetCatalogAsync();
+            var info = await Router.GetInfoAsync();
+
+            if (info.Count == 0)
+            {
+                _failed = true;
+                _message = T.SignInRejected(catalogue.FriendlyName);
+            }
+            else
+            {
+                _failed = false;
+                _message = T.ConnectedTo(catalogue.FriendlyName,
+                    catalogue.Services.Count, catalogue.ActionCount);
+                _password = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _failed = true;
+            _message = T.Failed(ex.Message);
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private async Task NewTokenAsync()
+    {
+        _running = true;
+        try
+        {
+            // Visible only here and only now: an access key you can look up again
+            // at any time is one that ends up in a screenshot eventually.
+            _newToken = await Token.NewAsync();
+            _deleteToken = false;
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private void DeleteToken()
+    {
+        Token.Delete();
+        _newToken = null;
+        _deleteToken = false;
+    }
+
+    private void Remove()
+    {
+        _removing = false;
+        try
+        {
+            Store.Clear();
+            _password = "";
+            _failed = false;
+            _message = T.AccountRemovedMessage;
+        }
+        catch (Exception ex)
+        {
+            _failed = true;
+            _message = ex.Message;
+        }
+    }
+}

@@ -1,0 +1,22 @@
+@* Tabs of the analysis section.
+
+   Analysis and impact stood side by side as two equal menu items, and the
+   names suggested they do the same thing. They do not: one is a report about
+   what was, the other a tool for what would be.
+
+   Merging them would mean pressing a tool into a report - the same category
+   error that made "Why?" look wrong in the main menu. What connects them is
+   the question behind both: what does the filtering do in this network? Once
+   computed against what happened, once computed forward against what would.
+
+   Hence one menu item, two tabs. Both addresses stay valid, so existing
+   bookmarks keep working. *@
+
+<nav class="subnav">
+    <NavLink href="analytics" Match="NavLinkMatch.All">@T.TabHistory</NavLink>
+    <NavLink href="impact">@T.TabRuleImpact</NavLink>
+</nav>
+
+@code {
+    [Inject] private Auspex.Control.Services.Localization.Strings T { get; set; } = default!;
+}

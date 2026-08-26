@@ -1,0 +1,181 @@
+@page "/"
+@rendermode InteractiveServer
+@inject IAuspexClient Auspex
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleOverview</PageTitle>
+
+<h1>@T.TitleOverview</h1>
+<p class="sub">@T.DataPlaneLabel: <span class="mono">@Auspex.BaseAddress</span></p>
+
+@if (_status is null)
+{
+    <div class="panel offline">
+        <h2>@T.DataPlaneGone</h2>
+        <p class="muted">@T.DataPlaneGoneWhy(Auspex.BaseAddress?.ToString() ?? "")</p>
+    </div>
+}
+else
+{
+    <div class="cards">
+        <div class="card">
+            <div class="label">@T.CardQueries</div>
+            <div class="value">@_status.Resolver.Queries.ToString("N0")</div>
+            <div class="hint">@T.CardErrorNote(_status.Resolver.Errors.ToString("N0"))</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardBlocked</div>
+            <div class="value">@_status.QueryLog.BlockRate.ToString("P1")</div>
+            <div class="hint">@T.CardQueriesNote(_status.Resolver.Blocked.ToString("N0"))</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardCacheRate</div>
+            <div class="value">@_status.Cache.HitRate.ToString("P1")</div>
+            <div class="hint">
+                @T.CardCacheNote(_status.Cache.Entries.ToString("N0"),
+                                     _status.Resolver.Prefetches.ToString("N0"))
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardUptime</div>
+            <div class="value">@T.Uptime(TimeSpan.FromSeconds(_status.UptimeSec))</div>
+            <div class="hint">@T.CardVersion(_status.Version)</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="toolbar">
+            <h2 class="m-0">@T.RuleSet</h2>
+            <span class="muted">
+                @T.RuleSetCounts(_status.Rules.BlockRules.ToString("N0"),
+                                   _status.Rules.AllowRules.ToString("N0"))
+            </span>
+            <div class="spacer"></div>
+            <button @onclick="ReloadAsync" disabled="@_busy">@T.ReloadLists</button>
+            <button @onclick="PurgeAsync" disabled="@_busy">@T.ClearCache</button>
+        </div>
+
+        @if (_message is not null)
+        {
+            <p class="muted">@_message</p>
+        }
+
+        @if (_status.Rules.Lists is { Length: > 0 } lists)
+        {
+            <table>
+                <thead>
+                <tr>
+                    <th>@T.ColumnList</th>
+                    <th class="num">@T.ColumnLines</th>
+                    <th class="num">@T.ColumnRules</th>
+                    <th class="num">@T.ColumnSkipped</th>
+                    <th class="num">@T.ColumnDuplicates</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var list in lists)
+                {
+                    <tr>
+                        <td>@list.Name</td>
+                        <td class="num">@list.Lines.ToString("N0")</td>
+                        <td class="num">@list.Rules.ToString("N0")</td>
+                        <td class="num muted">@list.Skipped.ToString("N0")</td>
+                        <td class="num muted">@list.Duplicates.ToString("N0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p class="muted">@T.NoLists</p>
+        }
+
+        @if (_status.Rules.Conflicts is { Length: > 0 } conflicts)
+        {
+            <p class="muted" style="margin-top:14px">
+                <strong>@conflicts.Length</strong> @T.ConflictsIntro(conflicts.Length)
+                <span class="mono">@string.Join(", ", conflicts.Take(8))</span>@(conflicts.Length > 8 ? " …" : "")
+            </p>
+        }
+    </div>
+
+    <div class="panel">
+        <h2>@T.Upstreams</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>@T.ColumnTarget</th>
+                <th>@T.ColumnProtocol</th>
+                <th>@T.ColumnStatus</th>
+                <th class="num">@T.CardQueries</th>
+                <th class="num">@T.ColumnErrors</th>
+                <th class="num">@T.ColumnLatency</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var up in _status.Upstreams)
+            {
+                <tr>
+                    <td class="mono">@up.Addr</td>
+                    <td>@up.Proto</td>
+                    <td>
+                        @if (up.Benched)
+                        {
+                            <span class="tag error">@T.Bench</span>
+                        }
+                        else
+                        {
+                            <span class="tag allowed">@T.Active</span>
+                        }
+                    </td>
+                    <td class="num">@up.Queries.ToString("N0")</td>
+                    <td class="num">@up.Errors.ToString("N0")</td>
+                    <td class="num">@up.AvgMs.ToString("N1") ms</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private AuspexStatus? _status;
+    private Timer? _timer;
+    private bool _busy;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+    }
+
+    private async Task RefreshAsync() => _status = await Auspex.GetStatusAsync();
+
+    private async Task ReloadAsync()
+    {
+        _busy = true;
+        _message = T.ListsLoading;
+        var ok = await Auspex.ReloadAsync(force: true);
+        _message = ok ? T.ListsReloaded : T.ListsFailed;
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task PurgeAsync()
+    {
+        _busy = true;
+        var ok = await Auspex.PurgeCacheAsync();
+        _message = ok ? T.CacheCleared : T.CacheClearFailed;
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

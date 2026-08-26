@@ -1,0 +1,7 @@
+blank_issues_enabled: true
+contact_links:
+  # Relativer Pfad statt fester Adresse: so stimmt der Link unabhaengig davon,
+  # unter welchem Konto und Namen das Repo liegt.
+  - name: Sicherheitslücke melden
+    url: ../../security/advisories/new
+    about: Bitte nicht als öffentliches Issue — siehe SECURITY.md.

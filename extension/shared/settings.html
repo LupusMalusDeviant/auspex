@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+  <style>
+    body { width: auto; max-width: 560px; max-height: none; padding: 20px; }
+    label { display: block; color: var(--muted); font-size: 12px; margin: 14px 0 4px; }
+    input { width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+            color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+    p.explain { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1 style="font-size:16px;margin:0 0 4px" data-t="settingsTitle">Auspex — Einstellungen</h1>
+  <p class="explain" data-t="settingsExplanation">
+    Beides steht im Dashboard unter „Einstellungen“. Das Zeichen wird dort
+    einmal erzeugt und danach nicht wieder angezeigt.
+  </p>
+
+  <label for="base" data-t="dashboardAddress">Adresse des Dashboards</label>
+  <input id="base" placeholder="http://192.168.1.61:5390" />
+
+  <label for="token" data-t="tokenLabel">Zeichen</label>
+  <input id="token" type="password" placeholder="…" />
+
+  <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+    <button id="save" class="primary" data-t="saveAndCheck">Speichern und prüfen</button>
+    <span id="status" class="info" style="font-size:12px"></span>
+  </div>
+</body>
+<script type="module" src="settings.js"></script>
+</html>

@@ -1,0 +1,73 @@
+name: Fehler melden
+description: Etwas verhält sich anders als beschrieben.
+labels: ["fehler"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Sicherheitslücken bitte nicht hier**, sondern über
+        [Private vulnerability reporting](../../security/advisories/new) —
+        siehe [SECURITY.md](../../blob/main/SECURITY.md).
+
+  - type: textarea
+    id: was
+    attributes:
+      label: Was passiert
+      description: Und was stattdessen passieren müsste.
+    validations:
+      required: true
+
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Wie es sich nachstellen lässt
+      description: >
+        Der kürzeste Weg. Eine `dig`-Zeile mit ihrer Ausgabe ist mehr wert als
+        drei Absätze Beschreibung.
+      placeholder: |
+        dig @192.168.1.61 beispiel.de A
+        → NXDOMAIN, erwartet war eine Adresse
+    validations:
+      required: true
+
+  - type: dropdown
+    id: teil
+    attributes:
+      label: Welcher Teil
+      options:
+        - Resolver (auspex)
+        - Oberfläche / Steuerebene (auspex-control)
+        - Router-Anbindung
+        - Browser-Erweiterung
+        - Weiß ich nicht
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version oder Commit
+      placeholder: "d86c372 oder v0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: umgebung
+    attributes:
+      label: Umgebung
+      description: >
+        Betriebssystem, Docker oder nativ, bei Router-Themen das Modell und
+        den Firmware-Stand.
+      placeholder: |
+        Debian 12, Docker Compose, Fritz!Box 5690 Pro mit FRITZ!OS 8.20
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log-Auszug
+      description: >
+        Falls vorhanden. **Vorher durchsehen** — Query-Logs enthalten die
+        besuchten Domains, und Router-Logs mitunter Gerätenamen.
+      render: text

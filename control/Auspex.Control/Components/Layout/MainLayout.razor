@@ -1,0 +1,257 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
+@using Auspex.Control.Services.Localization
+
+@* T is the display text in the chosen language. The short name is here
+   deliberately: it appears very often in the markup, and "T.NavDevices"
+   still reads as part of a sentence, "Strings.NavDevices" no longer does. *@
+
+<div class="shell">
+    <header>
+        <div class="brand">
+            <img class="logo" src="/icons/auspex-48.png" width="30" height="30" old="" />
+            <div>
+                <strong>Auspex</strong>
+                <small>@T.BrandSubline</small>
+            </div>
+        </div>
+        @* Three tabs instead of twelve equal entries. They name WHAT YOU DO
+           THERE - watch, step in, tend the installation -, not what the data
+           is called. Twelve identical-looking items force you to read the
+           whole list every time.
+
+           "Why?" deliberately no longer stands here. It is not a section you
+           visit but a question about ONE PARTICULAR decision. As a menu item
+           it forced you to type out the name you had in front of you; as a
+           button in the log row the question is already asked. The page still
+           exists at /explain. *@
+        @* Three tabs, exactly one open at a time.
+
+           Built from a radio group, not from Blazor state: "only ever one" IS
+           the meaning of a radio group, so the browser enforces the rule
+           itself, and expanding still works when the connection to the server
+           drops. In a navigation that matters to me more than the more
+           elegant notation.
+
+           The preselected tab is the one the current page sits in - so you
+           always see where you are without clicking. *@
+        <nav class="tab-bar">
+            @foreach (var r in Tab(T))
+            {
+                <input type="radio" name="register" id="@("reg-" + r.Key)"
+                       class="sr-only" checked="@r.Contains(Here)" />
+                <label for="@("reg-" + r.Key)"
+                       class="tab @(r.Contains(Here) ? "here" : null)"
+                       title="@r.Name @(r.Contains(Here) ? T.TabCurrent : T.TabExpand)">
+                    @r.Name
+                </label>
+                <span class="group">
+                    @foreach (var e in r.Entries)
+                    {
+                        <a href="@e.Destination"
+                           class="@(e.Matches(Here) ? "active" : null)">@e.Name</a>
+                    }
+                </span>
+            }
+        </nav>
+
+        @* Appearance: theme, accent, density, font size.
+
+           Deliberately <details> and not a Blazor disclosure: that is native
+           HTML, works without script and without a connection to the server,
+           and the browser brings the keyboard handling with it. The buttons
+           inside carry only data attributes - appearance.js listens on the
+           document and finds them again after a page change. *@
+        <details class="appearance">
+            <summary title="@T.AppearanceTitle">◑</summary>
+            <div class="setting">
+                <div class="axis">
+                    <span class="what">@T.AxisTheme</span>
+                    <div class="switches">
+                        <button type="button" data-sets="fassung" data-value="system">@T.ThemeAuto</button>
+                        <button type="button" data-sets="fassung" data-value="hell">@T.ThemeLight</button>
+                        <button type="button" data-sets="fassung" data-value="dunkel">@T.ThemeDark</button>
+                    </div>
+                </div>
+
+                <div class="axis">
+                    <span class="what">@T.AxisAccent</span>
+                    <div class="tones">
+                        @foreach (var (key, h, c) in Akzente)
+                        {
+                            var name = T.AccentName(key);
+                            <button type="button" class="tone" data-sets="akzent" data-value="@key"
+                                    title="@name" aria-label="@T.AxisAccent @name"
+                                    style="--probe: oklch(0.72 @c @h)"></button>
+                        }
+                    </div>
+                </div>
+
+                <div class="axis">
+                    <span class="what">@T.AxisDensity</span>
+                    <div class="switches">
+                        <button type="button" data-sets="dichte" data-value="kompakt">@T.DensityTight</button>
+                        <button type="button" data-sets="dichte" data-value="normal">@T.DensityNormal</button>
+                        <button type="button" data-sets="dichte" data-value="luftig">@T.DensityWide</button>
+                    </div>
+                </div>
+
+                <div class="axis">
+                    <span class="what">@T.AxisFontSize</span>
+                    <div class="switches">
+                        <button type="button" data-sets="schrift" data-value="klein">@T.FontSmall</button>
+                        <button type="button" data-sets="schrift" data-value="normal">@T.FontNormal</button>
+                        <button type="button" data-sets="schrift" data-value="gross">@T.FontLarge</button>
+                    </div>
+                </div>
+
+                @* The language is the only axis with links instead of buttons.
+                   The other four only change how the page looks, and the
+                   browser can do that alone. The language changes what the
+                   server writes - for that the page has to come again.
+
+                   That stays visible in the markup: <a> instead of <button>,
+                   and the change reloads rather than switching instantly. *@
+                <div class="axis">
+                    <span class="what">@T.AxisLanguage</span>
+                    <div class="switches">
+                        @foreach (var s in Strings.Languages)
+                        {
+                            var strings = Strings.For(s.Code);
+                            <a class="button @(s.Code == T.Code ? "chosen" : null)"
+                               href="@($"/language/{s.Code}?back=/{Here}")"
+                               data-enhance-nav="false"
+                               tooLong="@s.Code"
+                               aria-current="@(s.Code == T.Code ? "true" : null)">@strings.OwnName</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <AuthorizeView>
+            <Authorized>
+                <form method="post" action="/logout" class="m-0">
+                    <span class="muted t-md">@context.User.Identity?.Name</span>
+                    <button type="submit">@T.SignOut</button>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+    </header>
+
+    <main>
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @T.UnexpectedError
+    <a href="." class="reload">@T.Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    /// <summary>
+    /// The accent tones. Hue and chroma stand here <em>and</em> in
+    /// appearance.js — the colour swatch in the button has to show the same
+    /// tone the click then sets. If they diverge, you pick one colour and get
+    /// another.
+    ///
+    /// Muted tones, no neon: this is a measuring instrument.
+    ///
+    /// The name no longer stands here but in <c>Strings.AccentName</c>: it is
+    /// the only thing about a tone that changes with the language.
+    /// </summary>
+    private static readonly (string Key, int H, string C)[] Akzente =
+    [
+        ("oxblut",  15,  "0.105"),
+        ("rost",    45,  "0.115"),
+        ("messing", 80,  "0.110"),
+        ("moos",    145, "0.095"),
+        ("petrol",  195, "0.095"),
+        ("stahl",   240, "0.090"),
+        ("indigo",  280, "0.100"),
+        ("pflaume", 330, "0.100"),
+    ];
+
+    /// <summary>
+    /// One navigation entry.
+    /// </summary>
+    /// <param name="Destination">The address the entry points at.</param>
+    /// <param name="Name">The caption.</param>
+    /// <param name="Also">
+    /// Further addresses belonging to this entry. "Analysis" covers two
+    /// pages; without this the entry would stay unmarked on the second one,
+    /// and you would no longer see where you are.
+    /// </param>
+    private sealed record Entry(string Destination, string Name, params string[] Auch)
+    {
+        public bool Matches(string here) =>
+            Same(Destination, here) || Auch.Any(p => Same(p, here));
+
+        private static bool Same(string path, string here) =>
+            here.Equals(path, StringComparison.OrdinalIgnoreCase)
+            || (path.Length > 0 && here.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private sealed record Area(string Key, string Name, params Entry[] Entries)
+    {
+        public bool Contains(string here) => Entries.Any(e => e.Matches(here));
+    }
+
+    /// <summary>
+    /// The tabs name <em>what you do there</em> — watch, step in, tend the
+    /// installation —, not what the data is called. Twelve identical-looking
+    /// items forced you to read the whole list every time.
+    ///
+    /// The router entry is always there, even without an account. Making it
+    /// depend on a condition meant touching the router connection on every
+    /// page build - and whoever has not set up a router should still see that
+    /// the possibility exists. What is missing, the page says itself.
+    /// </summary>
+    /// <remarks>
+    /// A function and not a static field: the captions hang off the language,
+    /// the addresses do not. The addresses therefore stay German — they are
+    /// not display text, and a bookmark should survive a language switch.
+    /// </remarks>
+    private static Area[] Tab(Strings t) =>
+    [
+        new("beobachten", t.TabWatch,
+            new Entry("", t.NavOverview),
+            new Entry("querylog", t.NavQueryLog),
+            new Entry("analytics", t.NavAnalysis, "impact"),
+            new Entry("dossier", t.NavDossier),
+            new Entry("programs", t.NavPrograms),
+            new Entry("findings", t.NavFindings)),
+        new("eingreifen", t.TabIntervene,
+            new Entry("devices", t.NavDevices),
+            new Entry("lists", t.NavLists),
+            new Entry("learn", t.NavLearnMode)),
+        new("anlage", t.TabSystem,
+            new Entry("router", t.NavRouter),
+            new Entry("backup", t.NavBackup),
+            new Entry("settings", t.NavSettings)),
+    ];
+
+    /// <summary>The current path, without slashes and query.</summary>
+    private string Here =>
+        Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Trim('/');
+
+    /// <summary>
+    /// A layout is not necessarily rebuilt on a page change - Blazor only
+    /// swaps the content when the layout stays the same. Without this
+    /// subscription the marking would stay on the item you navigated away
+    /// from.
+    /// </summary>
+    protected override void OnInitialized() =>
+        Nav.LocationChanged += Changed;
+
+    private void Changed(object? _, LocationChangedEventArgs __) =>
+        InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Nav.LocationChanged -= Changed;
+
+}

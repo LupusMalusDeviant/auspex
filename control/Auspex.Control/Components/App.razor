@@ -1,0 +1,59 @@
+@inject Auspex.Control.Services.Localization.Strings T
+
+<!DOCTYPE html>
+@* lang belongs on the root and has to travel with the language: screen
+   readers pick their pronunciation from it, and the browser its
+   hyphenation. An English page with lang="de" gets read out as though it
+   were German. *@
+<html tooLong="@T.Code">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    @* The wordmark in-house, like the fonts: an interface meant to prevent
+       tracking loads nothing from somebody else's servers. *@
+    <link rel="icon" href="@Assets["favicon.ico"]" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" href="@Assets["icons/auspex-32.png"]" sizes="32x32" />
+    <link rel="apple-touch-icon" href="@Assets["icons/auspex-180.png"]" />
+    <link rel="manifest" href="@Assets["site.webmanifest"]" />
+    <meta name="theme-color" content="#53182A" />
+    @* Before the first paint, not after: if a script at the end of the page
+       loads the appearance, the wrong one flashes up briefly while building.
+       These few lines therefore have to sit inline - they are the cold-start
+       version of what appearance.js handles afterwards. *@
+    <script>
+        (function () {
+            var A = { oxblut:[15,.105], rost:[45,.115], messing:[80,.11], moos:[145,.095],
+                      petrol:[195,.095], stahl:[240,.09], indigo:[280,.1], pflaume:[330,.1] };
+            var D = { kompakt:.85, normal:1, luftig:1.18 };
+            var S = { klein:.92, normal:1, gross:1.12 };
+            try {
+                var w = JSON.parse(localStorage.getItem("auspex-appearance") || "{}");
+                var e = document.documentElement;
+                if (w.fassung === "hell") { e.dataset.theme = "light"; }
+                else if (w.fassung === "dunkel") { e.dataset.theme = "dark"; }
+                var a = A[w.akzent];
+                if (a) { e.style.setProperty("--accent-h", a[0]); e.style.setProperty("--accent-c", a[1]); }
+                if (D[w.dichte]) { e.style.setProperty("--d", D[w.dichte]); }
+                if (S[w.schrift]) { e.style.setProperty("--font-scale", S[w.schrift]); }
+            } catch (e) { /* blocked storage: then the default it is */ }
+        })();
+    </script>
+    <link rel="stylesheet" href="@Assets["fonts.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["Auspex.Control.styles.css"]" />
+    <ImportMap />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <ReconnectModal />
+    <script src="@Assets["appearance.js"]"></script>
+    <script src="@Assets["ruler.js"]"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>

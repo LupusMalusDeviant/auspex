@@ -1,0 +1,57 @@
+# Go
+/auspex/auspex
+/auspex/auspex.exe
+/auspex/auspexdig.exe
+/auspex/dist/
+/auspex/var/
+
+# .NET
+[Bb]in/
+[Oo]bj/
+*.user
+
+# Runtime artefacts, at every level and not only in the root
+var/
+*.log
+config.yaml
+# Backups of a deployed config carry the real addresses of the
+# installation they came from. The rule above does not match them,
+# and one 'git add -A' on a server would put that subnet in a public
+# repository. Found exactly that way.
+config.yaml.bak-*
+!config.example.yaml
+
+# Credentials, per installation
+.env
+/auspex/*.exe~
+
+# EF Core / SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Build output does not belong in the repository
+*.exe
+
+# The extension packages come out of shared/ through build.sh. Two versions
+# of the same files in the repository would be the sure way to let them drift
+# apart.
+/extension/dist/
+
+# Produced by the solution
+.vs/
+
+# The logo's source image. The icons produced from it are in the repository,
+# the 2048px original is not - a megabyte nobody needs.
+/auspex.jpg
+
+# Sensor: build artefacts and the local setup. sensor.json carries the
+# dashboard's token and belongs nowhere that gets shared.
+sensor/**/bin/
+sensor/**/obj/
+sensor/**/sensor.json
+sensor/bereit/
+sensor/ready/
+
+# Result files from individual test runs
+TestResults/

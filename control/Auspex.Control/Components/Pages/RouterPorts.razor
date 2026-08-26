@@ -1,0 +1,173 @@
+@page "/router/mappings"
+@rendermode InteractiveServer
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · @T.TitlePortMappings</PageTitle>
+
+    <h1>@T.TitlePortMappings</h1>
+    <p class="sub">@T.PortMappingsIntro</p>
+
+    @if (_message is not null)
+    {
+        <div class="panel note @(_failed ? "is-danger" : "is-ok")">
+            <p class="m-0 @(_failed ? "danger" : "ok")">@_message</p>
+        </div>
+    }
+
+    <div class="panel">
+        <div class="toolbar">
+            <h2 class="m-0">@T.PortMappingCount(_mappings.Count)</h2>
+            <div class="spacer"></div>
+            @if (Router.ReadOnly)
+            {
+                <span class="pill is-idle">@T.ReadOnly</span>
+            }
+            <button @onclick="LoadAsync" disabled="@_running">@T.Refresh</button>
+        </div>
+
+        @if (_error is not null)
+        {
+            @* Empty and "could not ask" are two different things. This used to say
+               "no door leads in from outside" - an assurance about the
+               security of the network that Auspex had never checked. *@
+            <div class="note is-danger">
+                <p class="m-0"><strong>@T.NotRead</strong> @_error</p>
+                <p class="muted t-md m-0 mt-2">@T.PortMappingsUnknown</p>
+            </div>
+        }
+        else if (_mappings.Count == 0)
+        {
+            <p class="muted m-0">
+                @(_running ? T.Loading : T.NoPortMappings)
+            </p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                <tr>
+                    <th>@T.ColumnLabel</th>
+                    <th>@T.ColumnFromOutside</th>
+                    <th>@T.ColumnToInside</th>
+                    <th>@T.ColumnProtocol</th>
+                    <th>@T.ColumnStatus</th>
+                    @if (!Router.ReadOnly)
+                    {
+                        <th></th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var f in _mappings)
+                {
+                    <tr>
+                        <td>
+                            <strong>@(f.Description is { Length: > 0 } ? f.Description : T.Unlabelled)</strong>
+                            @if (f.RemoteHost is { Length: > 0 })
+                            {
+                                <br />
+                                <span class="muted t-xs">@T.OnlyFrom(f.RemoteHost)</span>
+                            }
+                        </td>
+                        <td class="mono">@f.ExternalPort</td>
+                        <td class="mono">@f.InternalClient:@f.InternalPort</td>
+                        <td>@f.Protocol</td>
+                        <td>
+                            <span class="pill @(f.Enabled ? "is-on" : "is-off")">
+                                @(f.Enabled ? T.MappingActive : T.MappingInactive)
+                            </span>
+                        </td>
+                        @if (!Router.ReadOnly)
+                        {
+                            <td>
+                                @if (_deleting == Key(f))
+                                {
+                                    <div class="row-tight">
+                                        <button class="primary" @onclick="() => RemoveAsync(f)">@T.Really</button>
+                                        <button @onclick="() => _deleting = null">@T.No</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button @onclick="() => _deleting = Key(f)" disabled="@_running">
+                                        @T.Remove
+                                    </button>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="panel note">
+        <p class="muted m-0 t-md">
+            @T.NoNewMappingsBefore<a href="/router/catalog?service=%2Fupnp%2Fcontrol%2Fwanipconnection">@T.NoNewMappingsLink</a>@T.NoNewMappingsAfter
+        </p>
+    </div>
+</RouterGate>
+
+@code {
+    private List<RouterPortMapping> _mappings = [];
+    private string? _error;
+    private string? _deleting;
+    private string? _message;
+    private bool _failed;
+    private bool _running;
+
+    private static string Key(RouterPortMapping f) =>
+        $"{f.Protocol}:{f.ExternalPort}:{f.RemoteHost}";
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _running = true;
+        try
+        {
+            var reply = await Router.GetPortMappingsAsync();
+            _error = reply.Error;
+            _mappings = [.. reply.Entries];
+        }
+        catch (Exception ex)
+        {
+            _message = T.RouterUnreachable(ex.Message);
+            _failed = true;
+        }
+        finally
+        {
+            _running = false;
+            _deleting = null;
+        }
+    }
+
+    private async Task RemoveAsync(RouterPortMapping f)
+    {
+        _running = true;
+        _deleting = null;
+        try
+        {
+            var r = await Router.DeletePortMappingAsync(f);
+            _failed = !r.Ok;
+            _message = r.Ok
+                ? T.MappingRemoved(f.ExternalPort.ToString())
+                : r.Error;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _failed = true;
+        }
+        finally
+        {
+            _running = false;
+        }
+
+        await LoadAsync();
+    }
+}

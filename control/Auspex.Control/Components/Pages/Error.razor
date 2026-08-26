@@ -1,0 +1,35 @@
+@page "/Error"
+@using System.Diagnostics
+@inject Auspex.Control.Services.Localization.Strings T
+
+<PageTitle>Auspex · @T.ErrorTitle</PageTitle>
+
+@* This was in Blazor's shipped state until now: English, with detailed
+   instructions on how to switch the development environment on. Neither
+   belongs on an error page in production - the one because the interface is
+   German, the other because it describes a route that turns the internals
+   outwards. *@
+
+<h1>@T.ErrorTitle</h1>
+<p class="sub">@T.ErrorHeading</p>
+
+<div class="panel">
+    @if (ShowRequestId)
+    {
+        <p>
+            <strong>@T.ErrorId:</strong> <code class="mono">@RequestId</code>
+        </p>
+    }
+    <p class="muted m-0">@T.ErrorWhatToDo</p>
+</div>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

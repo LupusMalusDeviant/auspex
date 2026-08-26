@@ -1,0 +1,33 @@
+# Was nicht in den Baukontext gehoert.
+#
+# Der Kontext ist seit der Erweiterungs-Auslieferung das Wurzelverzeichnis.
+# Ohne diese Liste schickte Docker bei jedem Bau das ganze Repo an den
+# Dienst - samt .git, das mit den Icons inzwischen mehrere Megabyte wiegt,
+# und samt aller Bauartefakte. Das kostet bei jedem Bau Zeit und macht
+# ausserdem jede Aenderung an .git zu einer Cache-Verfehlung.
+.git
+.github
+.gitignore
+.gitattributes
+.dockerignore
+
+# Bauartefakte
+**/bin
+**/obj
+**/dist
+**/node_modules
+*.exe
+
+# Laufzeitdaten und Zugangsdaten - die haben in einem Abbild nichts verloren
+.env
+**/var
+**/*.db
+**/*.db-shm
+**/*.db-wal
+config.yaml
+
+# Dokumentation aendert sich oft und geht nicht ins Abbild
+docs
+*.md
+LICENSE
+NOTICE

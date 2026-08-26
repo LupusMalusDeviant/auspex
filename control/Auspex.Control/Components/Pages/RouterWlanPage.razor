@@ -1,0 +1,178 @@
+@page "/router/wlan"
+@rendermode InteractiveServer
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · @T.TitleWlan</PageTitle>
+
+    <h1>@T.TitleWlan</h1>
+    <p class="sub">@T.WlanIntro</p>
+
+    @if (_message is not null)
+    {
+        <div class="panel note @(_failed ? "is-danger" : "is-ok")">
+            <p class="m-0 @(_failed ? "danger" : "ok")">@_message</p>
+        </div>
+    }
+
+    <div class="toolbar">
+        <button @onclick="LoadAsync" disabled="@_running">@T.Refresh</button>
+        @if (Router.ReadOnly)
+        {
+            <span class="pill is-idle">@T.ReadOnly</span>
+        }
+    </div>
+
+    @if (_networks.Count == 0)
+    {
+        <div class="panel">
+            <p class="muted m-0">
+                @if (_running)
+                {
+                    <text>@T.Loading</text>
+                }
+                else if (_error is not null)
+                {
+                    <strong>@T.NotRead</strong> @_error
+                }
+                else
+                {
+                    <text>@T.NoWirelessNetworks</text>
+                }
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="split">
+            @foreach (var w in _networks.OrderBy(w => w.IsGuest).ThenBy(w => w.Instance))
+            {
+                <div class="panel">
+                    <div class="toolbar">
+                        <h2 class="m-0">@(w.Ssid is { Length: > 0 } ? w.Ssid : T.Unnamed)</h2>
+                        @if (w.BandLesbar is { } b)
+                        {
+                            <span class="pill">@b</span>
+                        }
+                        @if (w.IsGuest)
+                        {
+                            <span class="pill">@T.Guest</span>
+                        }
+                        <div class="spacer"></div>
+                        <span class="pill @(w.Enabled ? "is-on" : "is-off")">
+                            @(w.Enabled ? T.On : T.Off)
+                        </span>
+                    </div>
+
+                    <table class="mb-3">
+                        <tbody>
+                        <tr><td>@T.Kind</td><td>@(w.IsGuest ? T.GuestNetwork : T.HomeNetwork)</td></tr>
+                        @if (w.BandLesbar is { } band)
+                        {
+                            <tr><td>@T.Band</td><td>@band</td></tr>
+                        }
+                        @if (w.Channel is { Length: > 0 })
+                        {
+                            <tr><td>@T.Channel</td><td class="mono">@w.Channel</td></tr>
+                        }
+                        <tr>
+                            <td>@T.Encryption</td>
+                            <td class="@(w.SecurityWeak ? "danger" : "")">@w.SecurityReadable</td>
+                        </tr>
+                        <tr><td>@T.Instance</td><td class="mono t-sm muted">@w.Instance</td></tr>
+                        </tbody>
+                    </table>
+
+                    @if (Router.ReadOnly)
+                    {
+                        <p class="muted t-md m-0">@T.SwitchingBlocked</p>
+                    }
+                    else if (_confirming == w.ControlUrl)
+                    {
+                        <p class="danger t-md mb-2">
+                            @if (w.IsGuest)
+                            {
+                                <text>@T.GuestsLoseConnection</text>
+                            }
+                            else
+                            {
+                                <text>@T.CutOwnConnection</text>
+                            }
+                        </p>
+                        <div class="row">
+                            <button class="primary" @onclick="() => SwitchAsync(w)">
+                                @(w.Enabled ? T.ReallyTurnOff : T.ReallyTurnOn)
+                            </button>
+                            <button @onclick="() => _confirming = null">@T.Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button @onclick="() => _confirming = w.ControlUrl" disabled="@_running">
+                            @(w.Enabled ? T.TurnOff : T.SwitchOn)
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    }
+</RouterGate>
+
+@code {
+    private List<RouterWlan> _networks = [];
+    private string? _error;
+    private string? _confirming;
+    private string? _message;
+    private bool _failed;
+    private bool _running;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _running = true;
+        try
+        {
+            var reply = await Router.GetWlansAsync();
+            _error = reply.Error;
+            _networks = [.. reply.Entries];
+        }
+        catch (Exception ex)
+        {
+            _message = T.RouterUnreachable(ex.Message);
+            _failed = true;
+        }
+        finally
+        {
+            _running = false;
+            _confirming = null;
+        }
+    }
+
+    private async Task SwitchAsync(RouterWlan w)
+    {
+        _running = true;
+        _confirming = null;
+        try
+        {
+            var r = await Router.SetWlanAsync(w.ControlUrl, !w.Enabled);
+            _failed = !r.Ok;
+            _message = r.Ok
+                ? T.WlanToggled(w.Ssid is { Length: > 0 } ? w.Ssid : w.Instance, !w.Enabled)
+                : r.Error;
+        }
+        catch (Exception ex)
+        {
+            _message = ex.Message;
+            _failed = true;
+        }
+        finally
+        {
+            _running = false;
+        }
+
+        await LoadAsync();
+    }
+}

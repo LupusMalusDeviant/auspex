@@ -1,0 +1,248 @@
+@page "/findings"
+@rendermode InteractiveServer
+@inject AnalyticsService Stats
+@inject DetectionService Detection
+@inject IRuleWriter Rules
+@inject Auspex.Control.Services.Localization.Strings T
+@inject QuarantineService Quarantines
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleFindings</PageTitle>
+
+<h1>@T.TitleFindings</h1>
+<p class="sub">@T.FindingsIntro</p>
+
+<div class="toolbar">
+    <label class="muted"><input type="checkbox" @bind="_includeDismissed" @bind:after="RefreshAsync" /> @T.ShowDismissed</label>
+    <div class="spacer"></div>
+    @if (Detection.LastRunUtc is { } last)
+    {
+        <span class="muted">@T.LastChecked(Auspex.Control.Services.Localization.DisplayTime.ToDisplay(last).ToString("HH:mm:ss"))</span>
+    }
+    <button class="primary" @onclick="RunNowAsync" disabled="@_busy">@T.CheckNow</button>
+</div>
+
+@if (_message is not null)
+{
+    <div class="panel">
+        <p class="muted m-0">@_message</p>
+    </div>
+}
+
+@* A running quarantine has to be visible without hunting for it. A device
+   that is off the network and nobody remembers why is the failure this whole
+   feature is built to avoid. *@
+@foreach (var held in Quarantines.Active)
+{
+    <div class="panel note is-warn">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <strong>@T.QuarantineActive(held.Profile,
+                Auspex.Control.Services.Localization.DisplayTime.ToDisplay(held.UntilUtc).ToString("HH:mm"))</strong>
+            <span class="muted t-sm mono">@held.Reason</span>
+            <div class="spacer"></div>
+            <button @onclick="() => LiftAsync(held.Profile)" disabled="@_busy">@T.QuarantineLift</button>
+        </div>
+    </div>
+}
+
+@if (!Detection.BaselineReady)
+{
+    <div class="panel">
+        <p class="muted m-0">
+            <strong>@T.BaselineTitle</strong>@T.BaselineExplained
+        </p>
+    </div>
+}
+
+@if (_findings.Count == 0)
+{
+    <div class="panel">
+        <p class="muted m-0">@T.NothingUnusual</p>
+    </div>
+}
+else
+{
+    @foreach (var f in _findings)
+    {
+        <div class="panel @(f.Dismissed ? "muted" : "")">
+            <div class="toolbar" style="margin-bottom:10px">
+                <span class="tag @SeverityClass(f.Severity)">@Severity(f.Severity)</span>
+                <strong>@T.Finding(f).Titel</strong>
+                <div class="spacer"></div>
+                <span class="muted mono t-sm">@f.Detector</span>
+                @if (!f.Dismissed)
+                {
+                    @* Only on a finding that names a device, and only by
+                       hand. An automatic quarantine would take a device off
+                       the network on a false positive, at night, with nobody
+                       watching. *@
+                    @if (!string.IsNullOrEmpty(f.ClientName) && Quarantines.For(f.ClientName!) is null)
+                    {
+                        <button @onclick="() => QuarantineAsync(f)" disabled="@_busy"
+                                title="@T.QuarantineNote">@T.Quarantine</button>
+                    }
+                    <button @onclick="() => DismissAsync(f.Id)">@T.Dismissed</button>
+                }
+            </div>
+            <p style="margin:0 0 10px">@T.Finding(f).Explanation</p>
+            <dl class="kv">
+                <dt>@T.Client</dt>
+                <dd>
+                    @if (!string.IsNullOrEmpty(f.ClientName))
+                    {
+                        <strong>@f.ClientName</strong>
+                        <span class="mono muted"> @f.Client</span>
+                    }
+                    else
+                    {
+                        <span class="mono">@f.Client</span>
+                    }
+                </dd>
+                @if (!string.IsNullOrEmpty(f.Subject))
+                {
+                    <dt>@T.Domain</dt>
+                    <dd class="mono">@f.Subject</dd>
+                }
+                <dt>@T.Numbers</dt>
+                <dd>@T.Finding(f).Numbers</dd>
+                <dt>@T.Schedule</dt>
+                <dd class="muted">
+                    @T.WindowFromTo(T.ShortDateTime(f.WindowStartUtc),
+                                     Auspex.Control.Services.Localization.DisplayTime.ToDisplay(f.WindowEndUtc).ToString("HH:mm"))
+                </dd>
+
+                @if (!string.IsNullOrEmpty(f.Suggestion))
+                {
+                    <dt>@T.Suggestion</dt>
+                    <dd>
+                        <span class="mono">@f.Suggestion</span>
+                        @if (f.AppliedUtc is { } applied)
+                        {
+                            <span class="tag allowed" style="margin-left:8px">
+                                @T.Applied(T.ShortDateTime(applied))
+                            </span>
+                        }
+                        else if (Rules.Enabled)
+                        {
+                            <button class="primary" style="margin-left:8px"
+                                    @onclick="() => ApplyAsync(f)" disabled="@_busy">
+                                @T.CreateException
+                            </button>
+                        }
+                    </dd>
+                }
+            </dl>
+        </div>
+    }
+}
+
+@code {
+    private List<Auspex.Control.Data.Finding> _findings = [];
+    private bool _includeDismissed;
+    private bool _busy;
+    private string? _message;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20));
+    }
+
+    private async Task RefreshAsync() => _findings = await Stats.GetFindingsAsync(_includeDismissed);
+
+    private async Task QuarantineAsync(Auspex.Control.Data.Finding f)
+    {
+        if (string.IsNullOrEmpty(f.ClientName)) return;
+        _busy = true;
+        try
+        {
+            var error = await Quarantines.StartAsync(
+                f.ClientName!, QuarantineService.DefaultSpan, f.Detector);
+            _message = error is null
+                ? T.QuarantineStarted(f.ClientName!)
+                : T.QuarantineFailed(error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task LiftAsync(string profile)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Quarantines.LiftAsync(profile);
+            _message = error is null ? T.QuarantineLifted(profile) : T.QuarantineFailed(error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RunNowAsync()
+    {
+        _busy = true;
+        await Detection.RunOnceAsync();
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    /// <summary>
+    /// Writes the suggested exception and has the resolver reload. The
+    /// finding stays but is visibly marked done — so it remains traceable
+    /// afterwards why the rule exists.
+    /// </summary>
+    private async Task ApplyAsync(Auspex.Control.Data.Finding f)
+    {
+        if (string.IsNullOrEmpty(f.Suggestion)) return;
+        _busy = true;
+
+        var reason = $"{f.Detector}: {f.ClientLabel} → {f.Subject}";
+        var result = await Rules.AddAsync(f.Suggestion, reason, RuleTarget.Allow);
+
+        _message = result switch
+        {
+            { Written: true, Reloaded: true } => T.ExceptionCreated(f.Suggestion),
+            { Written: true, Reloaded: false } => T.ExceptionWrittenOffline(f.Suggestion),
+            _ => T.ExceptionFailed(result.Error),
+        };
+
+        if (result.Written)
+        {
+            await Stats.MarkAppliedAsync(f.Id);
+        }
+
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task DismissAsync(long id)
+    {
+        await Stats.DismissAsync(id);
+        await RefreshAsync();
+    }
+
+    private static string SeverityClass(string severity) => severity switch
+    {
+        "high" => "blocked",
+        "warn" => "error",
+        _ => "neutral",
+    };
+
+    private string Severity(string severity) => severity switch
+    {
+        "high" => T.SeverityHigh,
+        "warn" => T.SeverityWarn,
+        _ => T.SeverityInfo,
+    };
+
+    public void Dispose() => _timer?.Dispose();
+}

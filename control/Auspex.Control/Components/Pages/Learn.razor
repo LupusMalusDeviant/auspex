@@ -1,0 +1,151 @@
+@page "/learn"
+@rendermode InteractiveServer
+@inject IAuspexClient Auspex
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleLearnMode</PageTitle>
+
+<h1>@T.TitleLearnMode</h1>
+<p class="sub">@T.LearnIntro</p>
+
+@if (_profiles.Count == 0)
+{
+    <div class="panel">
+        <p class="muted m-0">@T.NoProfileLearning</p>
+    </div>
+}
+else
+{
+    <div class="cards">
+        @foreach (var p in _profiles)
+        {
+            <div class="card" style="cursor:pointer" @onclick="() => SelectAsync(p.Profile)">
+                <div class="label">@p.Profile</div>
+                <div class="value">@p.Names.ToString("N0")</div>
+                <div class="hint">
+                    <span class="tag @(p.Policy == "enforce" ? "blocked" : "rewritten")">@p.Policy</span>
+                    @T.DomainsAndSilence(p.Domains, Silence(p))
+                </div>
+                @if (p.Overflow)
+                {
+                    <div class="hint warn">@T.LimitReached</div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@if (_selected is not null)
+{
+    <div class="panel">
+        <div class="toolbar">
+            <h2 class="m-0">@T.AllowlistFor(_selected)</h2>
+            <select @bind="_granularity" @bind:after="LoadAllowlistAsync">
+                <option value="domain">@T.PerDomain</option>
+                <option value="exact">@T.ExactNames</option>
+            </select>
+            <div class="spacer"></div>
+            <button @onclick="ResetAsync">@T.DiscardLearned</button>
+        </div>
+
+        <p class="muted">@T.AllowlistNote</p>
+        <pre class="mono" style="background:var(--panel-2);padding:14px;border-radius:10px;overflow-x:auto">@_allowlistText</pre>
+    </div>
+
+    <div class="panel">
+        <h2>@T.ObservedNames(_entries.Count)</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>@T.ColumnName</th>
+                <th>@T.ColumnRegistrableDomain</th>
+                <th>@T.ColumnTypes</th>
+                <th class="num">@T.CardQueries</th>
+                <th>@T.ColumnLastSeen</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var e in _entries)
+            {
+                <tr>
+                    <td class="mono wrap">@e.Name</td>
+                    <td class="mono muted">@e.Domain</td>
+                    <td class="muted">@string.Join(", ", e.Types ?? [])</td>
+                    <td class="num">@e.Count.ToString("N0")</td>
+                    <td class="muted">@T.ShortDateTime(e.Last)</td>
+                    <td><button @onclick="() => ForgetAsync(e.Name)">@T.Forget</button></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<LearnStats> _profiles = [];
+    private IReadOnlyList<LearnEntry> _entries = [];
+    private string? _selected;
+    private string _granularity = "domain";
+    private string _allowlistText = "";
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        if (_selected is null && _profiles.Count > 0)
+        {
+            await SelectAsync(_profiles[0].Profile);
+        }
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+
+    private async Task RefreshAsync()
+    {
+        _profiles = await Auspex.GetLearnAsync();
+        if (_selected is not null)
+        {
+            _entries = await Auspex.GetLearnEntriesAsync(_selected);
+        }
+    }
+
+    private async Task SelectAsync(string profile)
+    {
+        _selected = profile;
+        _entries = await Auspex.GetLearnEntriesAsync(profile);
+        await LoadAllowlistAsync();
+    }
+
+    private async Task LoadAllowlistAsync()
+    {
+        if (_selected is null) return;
+        var list = await Auspex.GetAllowlistAsync(_selected, _granularity);
+        _allowlistText = list is null || list.Rules.Length == 0
+            ? T.NothingLearnedYetComment
+            : string.Join("\n", list.Rules.Select(r => $"  - \"{r}\""));
+    }
+
+    private async Task ForgetAsync(string name)
+    {
+        if (_selected is null) return;
+        await Auspex.ForgetAsync(_selected, name);
+        await SelectAsync(_selected);
+    }
+
+    private async Task ResetAsync()
+    {
+        if (_selected is null) return;
+        await Auspex.ResetLearnAsync(_selected);
+        await SelectAsync(_selected);
+    }
+
+    private string Silence(LearnStats p) =>
+        p.Names == 0 ? T.NothingLearnedYet : T.NothingNewSince(p.QuietFor);
+
+    public void Dispose() => _timer?.Dispose();
+}

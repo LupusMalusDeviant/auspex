@@ -1,0 +1,33 @@
+Auspex
+Copyright 2026 Lupus Malus Deviant (Eric Lenk)
+
+This product includes software developed by Lupus Malus Deviant (Eric Lenk)
+and contributors.
+
+Licensed under the Apache License, Version 2.0. See the LICENSE file for the
+full text.
+
+--------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------
+
+The resolver (auspex/) links the following Go modules. Their licenses apply
+to their own code; see each project for the full text.
+
+  github.com/miekg/dns              BSD-3-Clause
+  golang.org/x/net                  BSD-3-Clause
+  golang.org/x/sys                  BSD-3-Clause
+
+The control plane (control/) builds on .NET and the following packages,
+distributed under the MIT license by the .NET Foundation and contributors:
+
+  Microsoft.EntityFrameworkCore.Sqlite
+  Microsoft.EntityFrameworkCore.Design
+
+Auspex ships no blocklists. It reads lists that the operator configures; the
+lists themselves remain under the terms set by whoever publishes them.
+
+"Fritz!Box" and "AVM" are trademarks of AVM GmbH. This project is not
+affiliated with, endorsed by, or supported by AVM. It talks to the router
+over TR-064, a public specification of the Broadband Forum, and over the
+device's own web interface.

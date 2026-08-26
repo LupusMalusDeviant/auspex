@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Auspex.Sensor/Auspex.Sensor.csproj" />
+  <Project Path="Auspex.Sensor.Tests/Auspex.Sensor.Tests.csproj" />
+</Solution>

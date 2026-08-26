@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+
+    <!-- Eine Quelle: die Datei VERSION im Wurzelverzeichnis. Ein Test
+         prueft, dass Resolver, Erweiterung und beide .NET-Projekte
+         dieselbe Zahl tragen - vier Stellen laufen sonst auseinander,
+         und die Oberflaeche zeigt dann eine Fassung, die es nirgends
+         gibt. -->
+    <Version>0.10.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Die Tests pruefen auch interne Helfer wie LongestLabel. -->
+    <InternalsVisibleTo Include="Auspex.Control.Tests" />
+  </ItemGroup>
+
+  <!--
+    Die Quellen der Browser-Erweiterung wandern mit ins Ausgabeverzeichnis,
+    damit das Dashboard das Paket auf Anfrage selbst schnueren kann.
+
+    Bewusst die Quellen und nicht ein fertiges Archiv: ein eingechecktes Zip
+    waere ein Bauartefakt im Repo und liefe so lange mit dem Quellcode
+    auseinander, bis es jemandem auffaellt. Gepackt wird zur Laufzeit aus
+    dem, was hier liegt - das kann nicht veralten.
+
+    Die Pfade zeigen aus dem Projekt heraus. Fuer den Container heisst das,
+    dass der Baukontext eine Ebene hoeher liegen muss; ohne das faenden die
+    Verweise ins Leere und die Dateien fehlten stillschweigend im Abbild.
+    Genau davor schuetzt die Pruefung im CI-Auftrag "Container bauen".
+  -->
+  <ItemGroup>
+    <Content Include="../../extension/shared/**/*"
+             Link="extension/shared/%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../extension/chrome/manifest.json"
+             Link="extension/chrome/manifest.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../extension/firefox/manifest.json"
+             Link="extension/firefox/manifest.json"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

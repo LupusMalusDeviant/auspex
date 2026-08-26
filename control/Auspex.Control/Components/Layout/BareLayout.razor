@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+@inject Auspex.Control.Services.Localization.Strings T
+
+@* Without navigation: whoever is not signed in cannot do anything with the
+   links anyway - they only show which pages exist. *@
+
+<div class="shell">
+    @Body
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @T.UnexpectedError
+    <a href="." class="reload">@T.Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

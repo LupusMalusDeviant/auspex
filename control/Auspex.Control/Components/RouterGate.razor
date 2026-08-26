@@ -1,0 +1,43 @@
+@inject Auspex.Control.Services.Router.RouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+
+@* Guard in front of every router page.
+
+   With no account stored the section should not exist - the navigation hides
+   it already, but a hidden link is not a guard: the address can still be
+   typed, and then a page would stand there running into an error on every
+   click. Instead the same information as nowhere else: what would have to be
+   done. *@
+
+@if (Router.Configured)
+{
+    <nav class="subnav">
+        <NavLink href="router" Match="NavLinkMatch.All">@T.RouterSubOverview</NavLink>
+        <NavLink href="router/devices">@T.RouterSubDevices</NavLink>
+        <NavLink href="router/wlan">@T.RouterSubWlan</NavLink>
+        <NavLink href="router/mappings">@T.RouterSubPortMappings</NavLink>
+        <NavLink href="router/ipv4">@T.RouterSubIpv4</NavLink>
+        <NavLink href="router/log">@T.RouterSubEvents</NavLink>
+        <NavLink href="router/catalog">@T.RouterSubCatalogue</NavLink>
+        @if (Router.ReadOnly)
+        {
+            <span class="spacer"></span>
+            <span class="pill is-idle">@T.ReadOnly</span>
+        }
+    </nav>
+    @ChildContent
+}
+else
+{
+    <h1>@T.NavRouter</h1>
+    <p class="sub">@T.NoRouterAccount</p>
+
+    <div class="panel">
+        <p class="mb-3">@T.RouterAccountWhatFor</p>
+        <a class="btn" href="/settings">@T.StoreAccount</a>
+    </div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

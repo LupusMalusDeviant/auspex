@@ -1,0 +1,283 @@
+@page "/analytics"
+@rendermode InteractiveServer
+@inject AnalyticsService Stats
+@inject LongTermService LongTerm
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleAnalysis</PageTitle>
+
+<AnalyticsNav />
+
+<h1>@T.AnalysisHeading</h1>
+<p class="sub">
+    @(IsLongTerm ? T.AnalysisIntroDaily : T.AnalysisIntroRaw)
+</p>
+
+<div class="toolbar">
+    <select @bind="_hours" @bind:after="RefreshAsync">
+        <option value="24">@T.LastHours(24)</option>
+        <option value="168">@T.LastDays(7)</option>
+        <option value="720">@T.LastDays(30)</option>
+        <option value="-90">@T.LastDaysValues(90)</option>
+        <option value="-365">@T.LastYearValues</option>
+    </select>
+    <div class="spacer"></div>
+    @if (_ingest is not null)
+    {
+        <span class="muted">
+            @T.QueriesStored(_ingest.Ingested.ToString("N0"))
+            @if (_ingest.LostTotal> 0)
+            {
+                <span class="warn">@T.Missed(_ingest.LostTotal.ToString("N0"))</span>
+            }
+        </span>
+    }
+    <button @onclick="RefreshAsync">@T.Refresh</button>
+</div>
+
+@if (_overview is null || _overview.Total == 0)
+{
+    <div class="panel">
+        <p class="muted m-0">
+            @T.NoDataYet
+            @if (_overview?.Oldest is { } oldest)
+            {
+                <text>@T.OldestEntry(T.LongDateTime(oldest))</text>
+            }
+            else
+            {
+                <text>@T.IngestCatchingUp</text>
+            }
+        </p>
+    </div>
+}
+else
+{
+    <div class="cards">
+        <div class="card">
+            <div class="label">@T.CardQueries</div>
+            <div class="value">@_overview.Total.ToString("N0")</div>
+            <div class="hint">@T.AverageMs(_overview.AvgMillis.ToString("N1"))</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardBlocked</div>
+            <div class="value">@_overview.BlockRate.ToString("P1")</div>
+            <div class="hint">@T.CardQueriesNote(_overview.Blocked.ToString("N0"))</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardDnssec</div>
+            <div class="value">@_overview.ValidatedRate.ToString("P1")</div>
+            <div class="hint">@T.DnssecNote(_overview.Validated.ToString("N0"), _overview.Upstream.ToString("N0"))</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardDomains</div>
+            <div class="value">@_overview.Domains.ToString("N0")</div>
+            <div class="hint">@T.RegistrableDomains</div>
+        </div>
+        <div class="card">
+            <div class="label">@T.CardClients</div>
+            <div class="value">@_overview.Clients.ToString("N0")</div>
+            <div class="hint">@(_overview.Oldest is { } since ? T.Since(T.ShortDate(since)) : "")</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>@T.HistoryPer(IsLongTerm)</h2>
+        @if (_timeline.Count > 0)
+        {
+            var max = Math.Max(1, _timeline.Max(b => b.Total));
+            <svg viewBox="0 0 1000 170" preserveAspectRatio="none" style="width:100%;height:170px">
+                @for (var i = 0; i < _timeline.Count; i++)
+                {
+                    var b = _timeline[i];
+                    var w = 1000d / _timeline.Count;
+                    var x = i * w;
+                    var h = 150d * b.Total / max;
+                    var hb = 150d * b.Blocked / max;
+                    <rect x="@F(x)" y="@F(150 - h)" width="@F(Math.Max(0.5, w - 0.6))" height="@F(h)"
+                          fill="var(--accent)" opacity="0.35">
+                        <title>@T.BarTitle(T.ShortDateTime(b.StartUtc), b.Total, b.Blocked, b.BlockRate.ToString("P0"))</title>
+                    </rect>
+                    <rect x="@F(x)" y="@F(150 - hb)" width="@F(Math.Max(0.5, w - 0.6))" height="@F(hb)"
+                          fill="var(--block)" opacity="0.85" pointer-events="none" />
+                }
+                <line x1="0" y1="150" x2="1000" y2="150" stroke="var(--line)" stroke-width="1" />
+            </svg>
+            <div class="muted" style="display:flex;justify-content:space-between;font-size:12px">
+                <span>@Axis(_timeline[0].StartUtc)</span>
+                <span>@T.PeakNote(max.ToString("N0"), IsLongTerm)</span>
+                <span>@Axis(_timeline[^1].StartUtc)</span>
+            </div>
+        }
+    </div>
+}
+
+@if (_overview is not null && _overview.Total> 0)
+{
+    <div class="panel">
+        <div class="toolbar">
+            <h2 class="m-0">@T.TopDomains</h2>
+            <label class="muted"><input type="checkbox" @bind="_blockedOnly" @bind:after="RefreshAsync" /> @T.OnlyBlockedOnes</label>
+        </div>
+        <table>
+            <thead>
+            <tr>
+                <th>@T.Domain</th>
+                <th class="num">@T.CardQueries</th>
+                <th class="num">@T.ColumnBlocked</th>
+                <th class="num">@T.ColumnShare</th>
+                <th class="num">@T.ColumnClients</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var d in _domains)
+            {
+                <tr>
+                    <td class="mono wrap">@d.Domain</td>
+                    <td class="num">@d.Total.ToString("N0")</td>
+                    <td class="num">@d.Blocked.ToString("N0")</td>
+                    <td class="num muted">@((d.Total == 0 ? 0 : (double)d.Blocked / d.Total).ToString("P0"))</td>
+                    @if (!IsLongTerm)
+                    {
+                        <td class="num muted">@d.Clients</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="panel">
+        <h2>@T.Clients</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>@T.Client</th>
+                <th>@T.ColumnProfile</th>
+                <th class="num">@T.CardQueries</th>
+                <th class="num">@T.ColumnBlockRate</th>
+                <th class="num">@T.CardDomains</th>
+                <th>@T.ColumnLastSeen</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var c in _clients)
+            {
+                <tr>
+                    <td>
+                        @if (!string.IsNullOrEmpty(c.ClientName))
+                        {
+                            <strong>@c.ClientName</strong>
+                            <br /><span class="mono muted t-sm">@c.Client</span>
+                        }
+                        else
+                        {
+                            <span class="mono">@c.Client</span>
+                        }
+                    </td>
+                    <td class="muted">
+                        @(c.Profile ?? "–")
+                        @* Straight from the overview to the question "where to?" -
+                           making you type the device name out would be the
+                           detour the explain page used to force. *@
+                        <a class="t-xs" style="margin-left:8px"
+                           href="@($"/dossier?device={Uri.EscapeDataString(c.ClientName ?? c.Client)}")">@T.ViewDossier</a>
+                    </td>
+                    <td class="num">@c.Total.ToString("N0")</td>
+                    <td class="num">@c.BlockRate.ToString("P1")</td>
+                    <td class="num muted">@c.Domains.ToString("N0")</td>
+                    <td class="muted">@T.ShortDateTime(c.LastSeenUtc)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_lists.Count > 0)
+    {
+        <div class="panel">
+            <h2>@T.WhereBlocksComeFrom</h2>
+            <table>
+                <thead>
+                <tr><th>@T.ColumnList</th><th class="num">@T.ColumnBlocks</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var l in _lists)
+                {
+                    <tr>
+                        <td class="mono">@l.List</td>
+                        <td class="num">@l.Blocked.ToString("N0")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    // Negative values stand for days from the long-term store - that keeps it
+    // a single selector instead of two controls that can contradict each
+    // other.
+    private int _hours = 24;
+    private bool _blockedOnly;
+
+    private bool IsLongTerm => _hours < 0;
+    private int Days => Math.Abs(_hours);
+
+    private Overview? _overview;
+    private List<TimeBucket> _timeline = [];
+    private List<DomainCount> _domains = [];
+    private List<ClientSummary> _clients = [];
+    private List<ListCount> _lists = [];
+    private Auspex.Control.Data.IngestState? _ingest;
+    private Timer? _timer;
+
+    private TimeSpan Window => TimeSpan.FromHours(Math.Abs(_hours));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(15));
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (IsLongTerm)
+        {
+            _overview = await LongTerm.GetOverviewAsync(Days);
+            _timeline = await LongTerm.GetTimelineAsync(Days);
+            _domains = await LongTerm.GetTopDomainsAsync(Days, _blockedOnly);
+            _clients = await LongTerm.GetClientsAsync(Days);
+            _lists = [];
+        }
+        else
+        {
+            _overview = await Stats.GetOverviewAsync(Window);
+            _timeline = await Stats.GetTimelineAsync(Window);
+            _domains = await Stats.GetTopDomainsAsync(Window, _blockedOnly);
+            _clients = await Stats.GetClientsAsync(Window);
+            _lists = await Stats.GetTopListsAsync(Window);
+        }
+        _ingest = await Stats.GetIngestStateAsync();
+    }
+
+    /// <summary>
+    /// Label for the time axis. With a year for daily totals, otherwise with
+    /// a time - and in both cases in the form the chosen language uses for
+    /// it.
+    /// </summary>
+    private string Axis(DateTime moment) =>
+        IsLongTerm ? T.DateWithYear(moment) : T.ShortDateTime(moment);
+
+    /// <summary>SVG coordinates need the dot as a decimal separator.</summary>
+    private static string F(double value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    public void Dispose() => _timer?.Dispose();
+}

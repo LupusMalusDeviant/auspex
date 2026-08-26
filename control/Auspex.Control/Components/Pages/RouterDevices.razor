@@ -1,0 +1,169 @@
+@page "/router/devices"
+@rendermode InteractiveServer
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · @T.TitleRouterDevices</PageTitle>
+
+    <h1>@T.TitleRouterDevices</h1>
+    <p class="sub">@T.RouterDevicesIntro</p>
+
+    @if (_error is not null)
+    {
+        <div class="panel"><p class="danger m-0">@_error</p></div>
+    }
+
+    <div class="panel">
+        <div class="toolbar">
+            <h2 class="m-0">@T.DeviceTally(_devices.Count, _devices.Count(g => g.Online))</h2>
+            <div class="spacer"></div>
+            <label class="check">
+                <input type="checkbox" @bind="_onlyOnline" /> @T.OnlyConnected
+            </label>
+            <button @onclick="LoadAsync" disabled="@_running">@T.Refresh</button>
+        </div>
+
+        @if (_devices.Count == 0 && !_running)
+        {
+            <p class="muted m-0">@T.NoDevicesReported</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                <tr>
+                    <th>@T.ColumnDevice</th>
+                    <th>@T.ColumnIp</th>
+                    <th>@T.ColumnMac</th>
+                    <th>@T.ColumnLink</th>
+                    <th>@T.ColumnStatus</th>
+                    @if (Router.Configured)
+                    {
+                        <th>@T.ColumnInternet</th>
+                    }
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var g in Visible)
+                {
+                    <tr>
+                        <td>
+                            <strong>@g.DisplayName</strong>
+                            @if (g.HasRandomMac)
+                            {
+                                <br />
+                                <span class="muted t-xs" title="@T.RandomMacTitle">
+                                    @T.RandomMac
+                                </span>
+                            }
+                        </td>
+                        <td class="mono">@g.Ip</td>
+                        <td class="mono t-sm">@g.Mac</td>
+                        <td class="muted">@(g.Interface is { Length:> 0 } i ? i : "—")</td>
+                        <td>
+                            @if (g.Online)
+                            {
+                                <span class="ok">@T.Online</span>
+                            }
+                            else
+                            {
+                                <span class="muted">@T.Offline</span>
+                            }
+                        </td>
+                        @if (Router.Configured)
+                        {
+                            <td>
+                                @if (g.Ip is { Length:> 0 })
+                                {
+                                    <button @onclick="() => ToggleAccessAsync(g)" disabled="@(_running || Router.ReadOnly)">
+                                        @(_access.GetValueOrDefault(g.Ip) switch
+                                        {
+                                            true => T.BlockDevice,
+                                            false => T.Allow,
+                                            _ => T.CheckDevice,
+                                        })
+                                    </button>
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @if (!Router.Configured)
+    {
+        <div class="panel">
+            <p class="muted m-0">@T.DevicesWithoutAccount</p>
+        </div>
+    }
+</RouterGate>
+
+@code {
+    private List<RouterDevice> _devices = [];
+    private readonly Dictionary<string, bool?> _access = [];
+    private bool _onlyOnline = true;
+    private bool _running;
+    private string? _error;
+
+    private IEnumerable<RouterDevice> Visible =>
+        (_onlyOnline ? _devices.Where(g => g.Online) : _devices)
+        .OrderByDescending(g => g.Online)
+        .ThenBy(g => g.DisplayName, StringComparer.OrdinalIgnoreCase);
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _running = true;
+        _error = null;
+        try
+        {
+            _devices = (await Router.GetDevicesAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = T.RouterUnreachable(ex.Message);
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+    private async Task ToggleAccessAsync(RouterDevice g)
+    {
+        _running = true;
+        try
+        {
+            // On the first click the state is unknown: then it asks first and
+            // switches nothing yet. Otherwise a click on "check" would
+            // trigger a block nobody wanted.
+            if (!_access.TryGetValue(g.Ip, out var now) || now is null)
+            {
+                _access[g.Ip] = await Router.GetInternetAccessAsync(g.Ip);
+                return;
+            }
+
+            var r = await Router.SetInternetAccessAsync(g.Ip, !now.Value);
+            if (!r.Ok)
+            {
+                _error = r.Error;
+                return;
+            }
+            _access[g.Ip] = await Router.GetInternetAccessAsync(g.Ip, afterChange: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+}

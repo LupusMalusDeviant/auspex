@@ -1,0 +1,45 @@
+name: Bericht zu einem anderen Router
+description: Auspex an einem Router, der keine Fritz!Box 5690 Pro ist.
+labels: ["router"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Die Router-Anbindung entdeckt ihre Fähigkeiten über TR-064 selbst,
+        statt sie fest zu verdrahten. Sie *sollte* deshalb mit anderen Modellen
+        umgehen können — geprüft ist das nur an einem. **Auch gescheiterte
+        Versuche sind wertvoll**, gerade die.
+
+  - type: input
+    id: modell
+    attributes:
+      label: Modell und Firmware
+      placeholder: "Fritz!Box 7590 AX, FRITZ!OS 8.02"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ergebnis
+    attributes:
+      label: Wie weit kam Auspex
+      options:
+        - Katalog gelesen, alles Wesentliche geht
+        - Katalog gelesen, einzelne Vorgänge fehlen
+        - Katalog unvollständig
+        - Verbindung kam nicht zustande
+    validations:
+      required: true
+
+  - type: textarea
+    id: katalog
+    attributes:
+      label: Was der Katalog zeigt
+      description: >
+        Die Kopfzeile der Katalog-Seite genügt: Modell, Anzahl Dienste und
+        Aktionen, und ob "unvollständig" dabeisteht.
+      render: text
+
+  - type: textarea
+    id: fehlt
+    attributes:
+      label: Was nicht funktioniert hat

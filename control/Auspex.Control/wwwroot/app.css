@@ -1,0 +1,1036 @@
+/* Vorbild ist der Messstreifen, nicht das Verwaltungsformular: kalte
+   Papiertoene, Haarlinien statt Kaesten, und Zustand ueber Strichmuster
+   statt ueber eine Ampel.
+
+   Die Ampel ist hier nicht nur abgenutzt, sondern sachlich falsch: mehr als
+   die Haelfte aller Anfragen wird geblockt. Eine Oberflaeche, die das rot
+   faerbt, ist zur Haelfte Alarm - und ein Alarm, der immer leuchtet, wird
+   nicht mehr gesehen. Deshalb ist "geblockt" der stille Normalfall, und
+   Tinte bekommt, was durchkommt. */
+:root {
+    --bg: #131512;
+    --panel: #1A1D19;
+    --panel-2: #101210;
+    --line: #2E322C;
+    --line-fine: #23261F;
+    --text: #E6E8E1;
+    --muted: #9AA096;
+    --faint: #6B7168;
+
+    /* Ein einziges Signal, fuer das, was ansteht. Kein Dreiklang.
+
+       Der Akzent ist kein Hexwert, sondern ein FARBTON in OKLCH. Nur die
+       Zahl --accent-h wechselt; Helligkeit und Buntheit bleiben stehen.
+       Weil OKLCH die wahrgenommene Helligkeit festhaelt, hat ein gruener
+       Akzent damit denselben Kontrast wie ein roter - bei Hexwerten muesste
+       man das fuer jeden Ton einzeln nachmessen und traefe es doch nicht.
+
+       Gesetzt wird der Ton von appearance.js auf <html>. */
+    --accent-h: 15;
+    --accent-c: 0.105;
+    --accent: oklch(0.72 var(--accent-c) var(--accent-h));
+    --accent-ink: oklch(0.20 0.04 var(--accent-h));
+    --accent-soft: oklch(0.72 var(--accent-c) var(--accent-h) / 0.14);
+    --accent-line: oklch(0.72 var(--accent-c) var(--accent-h) / 0.45);
+    /* Was durchkam - kuehle Tinte, kein Status-Gruen. */
+    --through: #8FB4CE;
+
+    /* Beibehalten, weil ~40 Stellen darauf zeigen. Semantisch bleiben sie
+       "ok/warn/block", optisch tragen sie die neue, ruhigere Skala. */
+    --ok: #8FB4CE;
+    --block: #9AA096;
+    --warn: #C9A87A;
+
+    /* Keine Rundungen. Die Variablen bleiben stehen, damit nichts bricht,
+       das noch auf sie zeigt - sie sind jetzt nur alle null. */
+    --radius: 0px;
+    --radius-sm: 0px;
+    --radius-pill: 0px;
+    /* Fasenmass der Knopfformen. */
+    --fase: 9px;
+
+    /* Abstandsskala. Vorher standen 4, 6, 8, 10, 12, 14, 16, 18, 20, 24 und
+       26 Pixel als Einzelwerte in der Datei und in gut hundert Inline-Styles.
+       Eine Skala ist keine Schoenheitsfrage: ohne sie entscheidet bei jedem
+       neuen Element der Zufall, und die Oberflaeche franst mit jeder Seite
+       weiter aus. */
+    /* Dichte als Faktor auf die ganze Skala: ein Regler statt sechs
+       Einzelwerte, und die Verhaeltnisse bleiben erhalten. */
+    --d: 1;
+    --s-1: calc(4px * var(--d));
+    --s-2: calc(8px * var(--d));
+    --s-3: calc(12px * var(--d));
+    --s-4: calc(16px * var(--d));
+    --s-5: calc(24px * var(--d));
+    --s-6: calc(32px * var(--d));
+
+    --font-scale: 1;
+    --t-xs: calc(11.5px * var(--font-scale));
+    --t-sm: calc(12.5px * var(--font-scale));
+    --t-md: calc(13.5px * var(--font-scale));
+    --t-base: calc(14px * var(--font-scale));
+    --t-lg: calc(15px * var(--font-scale));
+    --t-xl: calc(18px * var(--font-scale));
+    --t-2xl: calc(22px * var(--font-scale));
+
+    --font-mono: "IBM Plex Mono", "Cascadia Code", Consolas, monospace;
+    --font-ui: Archivo, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Drei Zustaende, nicht zwei.
+
+   Die Voreinstellung ist "System": dann steht am Wurzelelement gar nichts,
+   und allein prefers-color-scheme entscheidet. Waehlt jemand ausdruecklich,
+   steht data-theme dort - und muss dann in BEIDE Richtungen gewinnen, auch
+   gegen ein anders eingestelltes Betriebssystem. Deshalb der Ausschluss in
+   der Abfrage und die zweite Regel danach.
+
+   Grundton ist dunkel; hell ist die Papierfassung. */
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+    --bg: #E4E6E1;
+    --panel: #EDEEEA;
+    --panel-2: #D8DAD4;
+    --line: #BCBFB8;
+    --line-fine: #CDD0C9;
+    --text: #16181C;
+    --muted: #5C615C;
+    --faint: #878B85;
+    --accent: oklch(0.44 calc(var(--accent-c) + 0.02) var(--accent-h));
+    --accent-ink: oklch(0.98 0.01 var(--accent-h));
+    --accent-soft: oklch(0.55 0.10 var(--accent-h) / 0.13);
+    --accent-line: oklch(0.55 0.10 var(--accent-h) / 0.42);
+    --through: #1D3B52;
+    --ok: #1D3B52;
+    --block: #5C615C;
+    --warn: #7A5A22;
+    }
+}
+
+:root[data-theme="light"] {
+    --bg: #E4E6E1;
+    --panel: #EDEEEA;
+    --panel-2: #D8DAD4;
+    --line: #BCBFB8;
+    --line-fine: #CDD0C9;
+    --text: #16181C;
+    --muted: #5C615C;
+    --faint: #878B85;
+    --accent: oklch(0.44 calc(var(--accent-c) + 0.02) var(--accent-h));
+    --accent-ink: oklch(0.98 0.01 var(--accent-h));
+    --accent-soft: oklch(0.55 0.10 var(--accent-h) / 0.13);
+    --accent-line: oklch(0.55 0.10 var(--accent-h) / 0.42);
+    --through: #1D3B52;
+    --ok: #1D3B52;
+    --block: #5C615C;
+    --warn: #7A5A22;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+.shell { max-width: 1180px; margin: 0 auto; padding: 0 20px 60px; }
+
+header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 0 22px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 26px;
+    flex-wrap: wrap;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand .logo { display: block; width: 30px; height: 30px; }
+.brand strong { display: block; font-size: 18px; letter-spacing: .4px; }
+.brand small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1.4px; }
+
+h1 { font-size: 22px; margin: 0 0 4px; font-weight: 600; }
+h2 { font-size: 15px; margin: 0 0 14px; font-weight: 600; }
+.sub { color: var(--muted); font-size: 14px; margin: 0 0 24px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 26px; }
+
+.card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 16px 18px;
+}
+
+.card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .8px; }
+.card .value { font-size: 26px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.card .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 18px;
+    margin-bottom: 20px;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; padding: 0 10px 9px; }
+td { padding: 8px 10px; border-top: 1px solid var(--line-fine); vertical-align: top; }
+tbody tr:hover { background: var(--accent-soft); }
+.mono { font-family: var(--font-mono); font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.wrap { max-width: 340px; overflow-wrap: anywhere; }
+
+/* Zustand traegt ein Strichmuster, nicht eine Farbflaeche. Damit bleibt die
+   Oberflaeche bei Farbfehlsichtigkeit und im Ausdruck vollstaendig lesbar -
+   Farbe ist Verstaerkung, nicht Traeger. */
+.tag {
+    display: inline-block;
+    padding: 1px 0 1px 11px;
+    font-family: var(--font-mono);
+    font-size: var(--t-xs);
+    font-weight: 500;
+    letter-spacing: .3px;
+    position: relative;
+    color: var(--muted);
+}
+.tag::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 2px; bottom: 2px;
+    width: 3px;
+    background: var(--muted);
+}
+
+/* Der Normalfall bleibt still. */
+.tag.blocked { color: var(--muted); }
+.tag.blocked::before { background: var(--line); }
+
+/* Was durchkam, bekommt Tinte - das ist die Information. */
+.tag.allowed { color: var(--through); }
+.tag.allowed::before { background: var(--through); }
+
+.tag.rewritten { color: var(--muted); }
+.tag.rewritten::before {
+    background: repeating-linear-gradient(180deg, var(--muted) 0 3px, transparent 3px 6px);
+}
+
+/* Doppelstrich, damit ein Fehler auch ohne Farbe heraussticht. */
+.tag.error { color: var(--accent); }
+.tag.error::before { background: var(--accent); width: 2px; box-shadow: 4px 0 0 var(--accent); }
+
+.tag.neutral { color: var(--faint); }
+.tag.neutral::before { background: var(--line); }
+
+/* Keine Pillen. Der Grundknopf ist geklammert - zwei Striche links und
+   rechts, keine Flaeche -, weil die meisten Knoepfe folgenlose Handlungen
+   ausloesen und nicht um Aufmerksamkeit buhlen sollen. */
+button, .btn {
+    background: transparent;
+    border: 0;
+    border-left: 2px solid var(--muted);
+    border-right: 2px solid var(--muted);
+    color: var(--text);
+    padding: 7px 12px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-size: var(--t-md);
+    font-weight: 600;
+}
+
+button:hover { background: var(--accent-soft); border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .45; cursor: default; }
+
+/* Wo die Fase sitzt, sagt was der Knopf tut - ablesbar, bevor man das Wort
+   gelesen hat, und ohne auf Farbe angewiesen zu sein.
+
+   oben rechts gekappt  -> oeffnet, laesst zu, bestaetigt
+   unten links gekappt  -> schliesst, entzieht, entfernt
+   rechte Kante spitz   -> fuehrt weiter, an eine andere Stelle */
+button.primary, button.opens, button.closes, button.leads {
+    background: var(--text);
+    color: var(--bg);
+    border: 0;
+    padding: 8px 15px;
+}
+button.primary:hover, button.opens:hover, button.closes:hover, button.leads:hover {
+    background: var(--accent);
+    color: var(--accent-ink);
+}
+
+button.primary, button.opens {
+    clip-path: polygon(0 0, calc(100% - var(--fase)) 0, 100% var(--fase), 100% 100%, 0 100%);
+}
+button.closes, button.danger {
+    clip-path: polygon(0 0, 100% 0, 100% 100%, var(--fase) 100%, 0 calc(100% - var(--fase)));
+}
+button.leads {
+    clip-path: polygon(0 0, calc(100% - var(--fase)) 0, 100% 50%, calc(100% - var(--fase)) 100%, 0 100%);
+    padding-right: 22px;
+}
+/* Signalfarbe nur, wo wirklich etwas ansteht. */
+button.danger {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 0;
+    padding: 8px 15px;
+}
+button.danger:hover { background: var(--accent); filter: brightness(1.15); }
+
+input[type=text], select {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: var(--t-md);
+}
+
+input[type=text]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); }
+.offline { border-left: 3px solid var(--block); padding-left: 14px; }
+.result { border-left: 3px solid var(--accent); padding-left: 16px; }
+.result.blocked { border-left-color: var(--block); }
+.result.allowed { border-left-color: var(--ok); }
+
+dl.kv { display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px; margin: 0; font-size: 14px; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--warn);
+    color: #000;
+    padding: 12px 20px;
+    z-index: 1000;
+}
+
+.login-field {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    font-size: 15px;
+    width: 100%;
+}
+
+.login-field:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+
+/* ---------------------------------------------------------------------------
+   Bausteine statt Inline-Styles.
+
+   Alles hierunter ersetzt etwas, das vorher als style="..." in einer Seite
+   stand. Der Unterschied ist nicht Ordnungsliebe: ein Inline-Style lässt sich
+   nicht zentral ändern, also driften die Seiten auseinander, sobald es mehr
+   als eine Handvoll gibt.
+   --------------------------------------------------------------------------- */
+
+/* Fließtext und Betonungen */
+.t-xs   { font-size: var(--t-xs); }
+.t-sm   { font-size: var(--t-sm); }
+.t-md   { font-size: var(--t-md); }
+.ok     { color: var(--ok); }
+.warn   { color: var(--warn); }
+.danger { color: var(--block); }
+.accent { color: var(--accent); }
+
+/* Abstände, nur die wenigen Fälle, die wirklich gebraucht werden */
+.m-0     { margin: 0; }
+.mt-1    { margin-top: var(--s-1); }
+.mt-2    { margin-top: var(--s-2); }
+.mt-3    { margin-top: var(--s-3); }
+.mb-2    { margin-bottom: var(--s-2); }
+.mb-3    { margin-bottom: var(--s-3); }
+.mb-4    { margin-bottom: var(--s-4); }
+
+/* Zeile aus Beschriftung und Wert, wie sie in fast jeder Tabelle vorkommt */
+.stack   { display: flex; flex-direction: column; gap: var(--s-1); }
+.row     { display: flex; align-items: center; gap: var(--s-2); flex-wrap: wrap; }
+.row-tight { display: flex; align-items: center; gap: var(--s-1); }
+
+/* Ein Feld mit Beschriftung darüber - der Baustein für alle Formulare, die
+   aus einer Gerätebeschreibung entstehen. */
+.field { margin-bottom: var(--s-2); }
+.field > label {
+    display: block;
+    color: var(--muted);
+    font-size: var(--t-sm);
+    margin-bottom: var(--s-1);
+}
+.field input, .field select { min-width: 260px; }
+
+/* Trennlinie innerhalb einer Tafel, für Listen gleichartiger Einträge */
+.divided > * + * { border-top: 1px solid var(--line); }
+.item { padding: var(--s-3) 0; }
+.item:first-child { padding-top: 0; }
+
+/* Eine Tafel, die einen Hinweis trägt statt Inhalt */
+.note { border-left: 3px solid var(--line); padding-left: var(--s-4); }
+.note.is-warn   { border-left-color: var(--warn); }
+.note.is-danger { border-left-color: var(--block); }
+.note.is-ok     { border-left-color: var(--ok); }
+
+/* Umschalter, der aussieht wie ein Knopf, aber ein Zustand ist */
+.pill {
+    display: inline-block;
+    padding: 1px var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-xs);
+    font-weight: 500;
+    border: 1px solid var(--line);
+    color: var(--muted);
+}
+.pill.is-on   { border-color: var(--through); color: var(--through); }
+.pill.is-off  { border-color: var(--accent);  color: var(--accent); }
+.pill.is-idle { border-color: var(--warn);    color: var(--warn); }
+
+/* Vorformatierter Block, der nicht aus dem Fenster läuft */
+pre.block {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+    font-size: var(--t-sm);
+}
+
+/* Unternavigation innerhalb eines Bereichs, abgesetzt von der Hauptleiste */
+.subnav {
+    display: flex;
+    gap: var(--s-1);
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--s-5);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: var(--s-3);
+}
+.subnav a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 5px var(--s-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--t-md);
+}
+.subnav a:hover { background: var(--accent-soft); color: var(--text); }
+.subnav a.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+
+/* Suchfeld, das die Breite ausnutzt statt auf 260px zu hocken */
+.search { flex: 1; min-width: 220px; }
+
+/* Zwei Spalten, die auf schmalen Fenstern untereinander rutschen */
+.split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--s-4);
+}
+
+input[type=number], input[type=search], textarea {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: var(--s-2) var(--s-3);
+    border-radius: var(--radius);
+    font-size: var(--t-base);
+}
+input[type=number]:focus, input[type=search]:focus, textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+input[type=checkbox] { accent-color: var(--accent); }
+
+label.check { display: flex; align-items: center; gap: var(--s-1); font-size: var(--t-md); cursor: pointer; }
+
+/* Nummerierte Anleitung, wie sie in leeren Zuständen erklärt, was zu tun ist */
+ol.steps { margin: 0 0 var(--s-3); padding-left: var(--s-5); }
+ol.steps li { margin-bottom: var(--s-1); }
+.mb-1 { margin-bottom: var(--s-1); }
+
+
+
+/* ── Der Messstreifen ────────────────────────────────────────────────────
+   Das Query-Log ist kein Datensatzbestand, den man verwaltet, sondern ein
+   Ereignisstrom auf einer Zeitachse. Links laeuft ein Lineal, die Zeit
+   wiederholt sich nicht innerhalb derselben Sekunde, und eine kraeftigere
+   Linie markiert den Sekundenwechsel - damit klebt ein Ausbruch sichtbar
+   zusammen statt sich in gleich aussehenden Zeilen zu verlieren. */
+.ruler {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    overflow-x: auto;
+    margin-bottom: var(--s-5);
+}
+
+table.stream { width: 100%; border-collapse: collapse; min-width: 640px; }
+
+table.stream th {
+    padding: var(--s-2) var(--s-3);
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+}
+
+table.stream td {
+    padding: var(--s-2) var(--s-3);
+    border-top: 1px solid var(--line-fine);
+    vertical-align: top;
+}
+/* Neue Sekunde: kraeftiger. Derselbe Takt: fein. */
+table.stream tr.beat td { border-top: 1px solid var(--line); }
+table.stream tbody tr:first-child td { border-top: 0; }
+table.stream tbody tr:hover { background: var(--accent-soft); }
+
+.sp-time {
+    width: 74px;
+    text-align: right;
+    color: var(--faint);
+    font-size: var(--t-sm);
+    white-space: nowrap;
+    padding-right: var(--s-2) !important;
+}
+.sp-gutter { width: 14px; padding: 0 !important; }
+.sp-action   { width: 1%; white-space: nowrap; }
+
+/* Die Rinne: Zustand als Strichmuster, nicht als Farbflaeche. Bleibt bei
+   Farbfehlsichtigkeit und im Ausdruck lesbar. */
+.gutter {
+    display: block;
+    width: 3px;
+    min-height: 100%;
+    height: 100%;
+    margin: var(--s-1) 0;
+    background: var(--line);
+}
+.gutter.blocked   { background: var(--line); }
+.gutter.allowed   { background: var(--through); }
+.gutter.rewritten {
+    background: repeating-linear-gradient(180deg, var(--muted) 0 3px, transparent 3px 6px);
+}
+.gutter.error {
+    width: 2px;
+    background: var(--accent);
+    box-shadow: 4px 0 0 var(--accent);
+}
+.gutter.neutral { background: var(--line-fine); }
+
+.sp-content { width: 100%; }
+.headline { display: flex; align-items: baseline; gap: var(--s-2); flex-wrap: wrap; }
+.headline .name { font-size: var(--t-md); overflow-wrap: anywhere; }
+
+.types {
+    font-size: 10.5px;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    padding: 0 4px;
+    white-space: nowrap;
+}
+
+/* Vielfachheit als Marke statt als Zahl: drei Striche liest man schneller
+   als "3x", und bei mehr als sechs steht die Zahl daneben. */
+.multiple { display: inline-flex; gap: 2px; align-items: center; }
+.multiple i { display: block; width: 3px; height: 9px; background: var(--faint); }
+.multiple em {
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--faint);
+    margin-left: 3px;
+}
+
+.stream .below {
+    font-size: var(--t-xs);
+    color: var(--faint);
+    margin-top: 3px;
+    overflow-wrap: anywhere;
+}
+.stream .below b { color: var(--muted); font-weight: 500; }
+.stream .below .address { color: var(--line); }
+.stream .below.device { color: var(--muted); }
+
+.allowed-text { color: var(--through); }
+.error-text   { color: var(--accent); }
+
+/* Handlungen erst beim Hinsehen. Sie stehen in jeder Zeile und wuerden
+   sonst das Bild bestimmen, obwohl sie fast nie gebraucht werden. */
+.row-actions { display: flex; gap: var(--s-1); align-items: center; }
+.stream .row-actions { opacity: 0; transition: opacity .1s; }
+.stream tr:hover .row-actions,
+.stream tr:focus-within .row-actions { opacity: 1; }
+.stream .row-actions button { font-size: var(--t-xs); padding: 4px 9px; }
+.stream .row-actions button.leads { padding-right: 16px; }
+
+/* Nur fuer Vorleseprogramme */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stream .row-actions { opacity: 1; transition: none; }
+}
+
+
+/* ══ Navigation: drei Register, immer genau eines offen ══════════════════
+   Der Zwang liegt in der Radiogruppe, nicht im Code - der Browser setzt ihn
+   durch, und das Aufklappen ueberlebt einen Verbindungsabriss zum Server.
+   Bei einer Navigation ist mir das wichtiger als die elegantere Loesung. */
+.tab-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* Der Reiter: dieselbe Fase wie an den Knoepfen, hier an der rechten Kante
+   zum Stumpf gekappt - er zeigt auf das, was er aufklappt. */
+.tab-bar .tab {
+    display: flex;
+    align-items: center;
+    padding: 7px 20px 7px 12px;
+    margin-left: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    border: 1px solid var(--line);
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+    /* KEINE Ueberblendung auf color/background.
+
+       Aendert sich eine Variable, aus der eine ueberblendete Eigenschaft
+       abgeleitet ist, loest der Browser den Uebergang nicht neu aus - der
+       Wert bleibt auf dem letzten Stand stehen. Real gemessen: nach dem
+       Wechsel des Akzents zeigte --accent am Reiter bereits den neuen Ton,
+       sein background aber weiterhin den alten. Die Marke vor der
+       Ueberschrift, die keine Ueberblendung hat, wechselte korrekt mit.
+
+       Der Rest der Oberflaeche reagiert ohnehin unmittelbar; eine weiche
+       Blende waere hier das einzige weiche Element zwischen lauter Kanten. */
+}
+.tab-bar .tab:first-of-type { margin-left: 0; }
+.tab-bar .tab:hover { color: var(--text); background: var(--accent-soft); border-color: var(--accent-line); }
+
+/* Das offene Register: gefuellt, damit auf einen Blick klar ist, welches
+   der drei gerade spricht. */
+/* Der aktive Reiter traegt den AKZENT, nicht die Textfarbe.
+
+   Das ist die sichtbarste Stelle der Oberflaeche und zugleich eine, an der
+   Farbe nichts bewertet: "wo bin ich" ist ein Zustand der Bedienung, keine
+   Aussage ueber Daten. Die Ampel bleibt damit abgeschafft - und die Wahl des
+   Akzents ist trotzdem auf jeder Seite zu sehen. */
+.tab-bar input:checked + .tab {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+}
+
+/* Wo man wirklich ist.
+
+   "Immer nur eines offen" hat eine Kehrseite: klappt man ein anderes
+   Register auf, verliert man die Anzeige, auf welcher Seite man steht. Der
+   Punkt bleibt deshalb am Reiter des Bereichs, zu dem die aktuelle Seite
+   gehoert - auch wenn dieser Reiter zu ist. */
+.tab-bar .tab.here::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    background: var(--accent);
+    margin-right: var(--s-2);
+    flex: none;
+}
+.tab-bar input:checked + .tab.here::before { background: var(--accent-ink); }
+
+/* Sichtbare Tastaturmarke - der Radioknopf selbst ist unsichtbar, also
+   muss der Reiter sie zeigen. */
+.tab-bar input:focus-visible + .tab {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Die Gruppe faehrt zur Seite auf. max-width statt width, weil der Inhalt
+   unterschiedlich breit ist und sich nicht vorher ausrechnen laesst. */
+.tab-bar .group {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    max-width: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-width .28s cubic-bezier(.2, .7, .3, 1), opacity .18s;
+}
+.tab-bar input:checked + .tab + .group {
+    max-width: 60ch;
+    opacity: 1;
+    padding-left: var(--s-2);
+}
+
+.tab-bar .group a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 7px 12px;
+    font-size: var(--t-base);
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+}
+.tab-bar .group a:hover { background: var(--accent-soft); color: var(--text); border-bottom-color: var(--accent-line); }
+.tab-bar .group a.active {
+    color: var(--text);
+    font-weight: 600;
+    border-bottom-color: var(--text);
+}
+
+/* Schmal: die Gruppe bekommt eine eigene Zeile, statt die Reiter
+   auseinanderzureissen. */
+@media (max-width: 860px) {
+    .tab-bar .group { flex-basis: 100%; }
+    .tab-bar input:checked + .tab + .group {
+        max-width: none;
+        padding: var(--s-2) 0 0;
+        flex-wrap: wrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tab-bar .group { transition: none; }
+}
+
+/* ── Darstellung ─────────────────────────────────────────────────────────
+   Ein aufklappbares Feld statt zwanzig Schaltern im Kopf. Natives <details>:
+   funktioniert ohne Skript, ohne Verbindung zum Server, und die
+   Tastaturbedienung bringt der Browser mit. */
+.appearance { position: relative; }
+.appearance > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 4px 9px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.2;
+    user-select: none;
+}
+.appearance > summary::-webkit-details-marker { display: none; }
+.appearance > summary:hover { color: var(--text); background: var(--accent-soft); border-color: var(--accent-line); }
+.appearance[open] > summary { background: var(--text); color: var(--bg); border-color: var(--text); }
+.appearance > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.appearance .setting {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 30;
+    min-width: 230px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: var(--s-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+    /* Kein Schatten - die Linie trennt. Ein Schatten waere das einzige
+       weiche Element in einer Oberflaeche aus Kanten. */
+}
+.appearance .axis { display: flex; flex-direction: column; gap: var(--s-1); }
+.appearance .what {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+.appearance .switches { display: flex; border: 1px solid var(--line); }
+/* Die Sprachachse traegt Links statt Knoepfe - ein Sprachwechsel laedt die
+   Seite neu, und dafuer ist <a> das richtige Element. Aussehen muss es
+   trotzdem wie die Knoepfe daneben, sonst sieht die Achse aus, als koennte
+   sie etwas anderes. */
+.appearance .switches button,
+.appearance .switches a.button {
+    flex: 1;
+    border: 0;
+    border-left: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 5px 4px;
+    cursor: pointer;
+    clip-path: none;
+}
+.appearance .switches a.button {
+    /* Ein Link ist inline; die Knoepfe daneben sind es nicht. Ohne das
+       stuende die Beschriftung anders auf der Zeile als nebenan. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+.appearance .switches > :first-child { border-left: 0; }
+.appearance .switches button:hover,
+.appearance .switches a.button:hover { background: var(--accent-soft); color: var(--text); }
+.appearance .switches button.chosen,
+.appearance .switches a.button.chosen { background: var(--text); color: var(--bg); }
+.appearance button:focus-visible,
+.appearance a.button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Die Farbproben. Quadratisch und scharfkantig wie alles andere; der
+   gewaehlte Ton bekommt einen Rahmen in Textfarbe statt eines Hakens. */
+.appearance .tones { display: flex; flex-wrap: wrap; gap: 4px; }
+.appearance .tone {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--line);
+    background: var(--probe);
+    cursor: pointer;
+    clip-path: none;
+}
+.appearance .tone:hover { border-color: var(--accent); }
+.appearance .tone.chosen {
+    /* Zwei Rahmen: der aeussere in Textfarbe, der innere in Grundfarbe -
+       damit die Marke auf jedem Ton sichtbar bleibt, hell wie dunkel. */
+    border-color: var(--text);
+    box-shadow: inset 0 0 0 2px var(--panel);
+}
+
+/* ── Farbe fuer Herkunft, nicht fuer Bewertung ───────────────────────────
+   Die Ampel bleibt abgeschafft: Zustand traegt weiterhin ein Strichmuster.
+   Farbe bekommt hier etwas anderes - die LISTE, aus der eine Regel stammt.
+   Das ist eine Kategorie, keine Wertung, und beantwortet beim Ueberfliegen
+   die Frage, die man im Query-Log wirklich hat: "wer hat das gesperrt?"
+
+   Sechs gedeckte Toene, die auf beiden Grundfassungen tragen. Welcher
+   welchen Namen trifft, entscheidet die Quersumme des Listennamens - damit
+   bleibt eine Liste immer derselbe Ton, ohne dass irgendwo eine Zuordnung
+   gepflegt werden muss. */
+:root {
+    --liste-1: #7E9AAE;
+    --liste-2: #A98C6B;
+    --liste-3: #8B9E86;
+    --liste-4: #A08098;
+    --liste-5: #7F94A8;
+    --liste-6: #B0967E;
+}
+@media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+        --liste-1: #3C5A6E;
+        --liste-2: #6B5233;
+        --liste-3: #4B5E46;
+        --liste-4: #604058;
+        --liste-5: #3F5468;
+        --liste-6: #70563E;
+    }
+}
+:root[data-theme="light"] {
+    --liste-1: #3C5A6E;
+    --liste-2: #6B5233;
+    --liste-3: #4B5E46;
+    --liste-4: #604058;
+    --liste-5: #3F5468;
+    --liste-6: #70563E;
+}
+
+.list-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+.list-mark::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    background: var(--ton, var(--faint));
+    flex: none;
+}
+.list-mark.t1::before { background: var(--liste-1); }
+.list-mark.t2::before { background: var(--liste-2); }
+.list-mark.t3::before { background: var(--liste-3); }
+.list-mark.t4::before { background: var(--liste-4); }
+.list-mark.t5::before { background: var(--liste-5); }
+.list-mark.t6::before { background: var(--liste-6); }
+
+/* Ein <a>, das aussehen und sich anfuehlen soll wie ein Knopf. Bewusst ein
+   Link und kein Knopf: ein Download ist eine Navigation, und der Browser
+   soll ihn als solche behandeln - Rechtsklick, "Ziel speichern unter",
+   alles das. */
+a.btn {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: var(--t-md);
+    font-weight: 600;
+    padding: 8px 15px;
+    background: var(--text);
+    color: var(--bg);
+    border: 0;
+}
+a.btn:hover { background: var(--accent); color: var(--accent-ink); }
+a.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a.btn.opens {
+    clip-path: polygon(0 0, calc(100% - var(--fase)) 0, 100% var(--fase), 100% 100%, 0 100%);
+}
+
+
+/* ── Wo der Akzent sonst noch traegt ─────────────────────────────────────
+   Ueberall dort, wo es um die Bedienung geht - nicht um die Bewertung von
+   Daten. Ein Link ist ein Link, ein aktiver Reiter ist der aktive Reiter;
+   beides sagt nichts darueber, ob etwas gut oder schlecht ist. */
+
+/* Verweise im Fliesstext. Unterstrichen, nicht nur eingefaerbt: wer Farben
+   schlecht unterscheidet, soll einen Link trotzdem als solchen erkennen. */
+.panel a:not(.btn):not([class]),
+p a:not(.btn),
+li a:not(.btn),
+td a:not(.btn) {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+}
+.panel a:not(.btn):not([class]):hover,
+p a:not(.btn):hover,
+li a:not(.btn):hover,
+td a:not(.btn):hover { text-decoration-thickness: 2px; }
+
+/* Das aktive Register im Unterbereich (Router, Auswertung). */
+.subnav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Die Marke am Abschnittstitel: eine kurze Linie in Akzentfarbe vor der
+   Ueberschrift, damit die Wahl auch auf ruhigen Seiten sichtbar ist. */
+h1 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+}
+h1::before {
+    content: "";
+    width: 14px;
+    height: 3px;
+    background: var(--accent);
+    flex: none;
+    align-self: center;
+}
+
+
+/* ── Was man anfasst, traegt den Akzent ──────────────────────────────────
+   Die Trennlinie ist dieselbe wie ueberall: Farbe beschreibt die
+   BEDIENUNG, nicht die Bewertung von Daten. Ein Ueberfahren mit der Maus
+   sagt "hier koenntest du klicken" - eine Aussage ueber die Oberflaeche,
+   nicht ueber das, was darin steht. Die Rinne im Query-Log bleibt deshalb
+   grau, die Zeile darunter faerbt sich beim Ueberfahren. */
+
+/* Eingaben: der Rahmen folgt dem Akzent, nicht nur der Fokusring. */
+input[type=text]:hover, input[type=number]:hover, input[type=search]:hover,
+select:hover, textarea:hover { border-color: var(--accent-line); }
+input[type=text]:focus, input[type=number]:focus, input[type=search]:focus,
+select:focus, textarea:focus { border-color: var(--accent); }
+
+/* Zeilen in aufgeteilten Listen (Geraete, Listen, Funde). */
+.divided > .item:hover { background: var(--accent-soft); }
+
+/* Markierter Text. Kostet nichts und wirkt ueberall. */
+::selection { background: var(--accent-soft); }
+
+/* Der Bildlaufbalken, wo der Browser ihn faerben laesst. */
+* { scrollbar-color: var(--accent-line) transparent; }
+
+/* Aufzaehlungsmarken in den Anleitungen. */
+ol.steps li::marker { color: var(--accent); }
+ul.list li::before { background: var(--accent-line); }
+
+/* ── Tastaturbedienung im Streifen ───────────────────────────────────────
+   j/k bewegen, f gibt frei, b blockt, w fragt nach dem Warum. Die gewaehlte
+   Zeile bekommt eine Kante in Akzentfarbe - kraeftiger als das Ueberfahren
+   mit der Maus, damit beides gleichzeitig sichtbar bleibt. */
+table.stream tbody tr.here {
+    background: var(--accent-soft);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+/* Die Handlungen der gewaehlten Zeile stehen dauerhaft da: wer mit der
+   Tastatur arbeitet, hat keinen Mauszeiger, der sie hervorholt. */
+.stream tr.here .row-actions { opacity: 1; }
+
+.keys { display: block; margin-top: var(--s-1); color: var(--faint); font-size: var(--t-xs); }
+kbd {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    border: 1px solid var(--line);
+    padding: 0 4px;
+    margin-right: 2px;
+    color: var(--muted);
+}
+
+/* Sprachwahl auf der Anmeldeseite. Sie hat keine Kopfleiste, also auch kein
+   Darstellungsfeld - und wer die Oberflaeche auf Englisch braucht, muesste
+   sich sonst erst auf Deutsch anmelden, um sie umstellen zu koennen. */
+.language-picker {
+    display: flex;
+    justify-content: center;
+    gap: var(--s-2);
+    margin-top: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.language-picker a { color: var(--faint); text-decoration: none; border-bottom: 1px solid transparent; }
+.language-picker a:hover { color: var(--accent); border-bottom-color: var(--accent-line); }
+.language-picker [aria-current] { color: var(--text); }
+
+/* Anteilsbalken im Dossier. Eine Haarlinie, kein Diagramm: die Zahl steht
+   daneben, der Balken soll nur den Groessenvergleich beim Ueberfliegen
+   moeglich machen. */
+.share {
+    height: 3px;
+    background: var(--line-fine);
+    margin-top: var(--s-1);
+}
+.share i {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+}
+
+/* Programme unter einem Empfaenger. Keine Tabelle: es sind meist zwei oder
+   drei je Betreiber, und eine Tabelle mit drei Zeilen und vier Spalten
+   kostet mehr Platz als sie ordnet. */
+.programs { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); }
+.program {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-1);
+    border-left: 2px solid var(--accent-line);
+    padding-left: var(--s-1);
+    font-size: var(--t-sm);
+}
+.program b { font-weight: 600; }
+.program i { font-style: normal; color: var(--faint); font-family: var(--font-mono); font-size: var(--t-xs); }

@@ -1,0 +1,159 @@
+# Auspex on a Docker host.
+#
+# network_mode: host is not a convenience here but a condition: on a bridge
+# network every query would arrive with the Docker gateway's IP. Client
+# profiles, learning mode and the entire per-device analysis would be
+# worthless with it, because there would be only one single "client".
+
+services:
+  auspex:
+    build: ./auspex
+    image: auspex:local
+    container_name: auspex
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+      - NET_BIND_SERVICE
+    # The health check runs a real query through the chain. "The process is
+    # alive" would be passed by a hanging handler while nobody on the network
+    # gets an answer any more.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:5380/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+    volumes:
+      - ./auspex/config.yaml:/etc/auspex/config.yaml:ro
+      - auspex-var:/var/lib/auspex
+      # Exceptions the control plane writes, and the device list. Read-only:
+      # the resolver is a consumer here, not an author.
+      - auspex-shared:/var/lib/auspex-shared:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  auspex-control:
+    # The context sits one level above the project: the control plane takes
+    # the browser extension's sources into the image so it can pack them at
+    # run time. From ./control/Auspex.Control they would be out of reach.
+    build:
+      context: .
+      dockerfile: control/Auspex.Control/Dockerfile
+    image: auspex-control:local
+    # The name is free: Whiskers' rule "real errors" listens on all containers
+    # and picks up the [ERROR] pattern in the line, not the container name.
+    container_name: auspex-control
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      auspex:
+        condition: service_healthy
+    environment:
+      # Without this line the container stands on UTC, and because the
+      # interface computed ToLocalTime() everywhere, "local" then meant UTC:
+      # every time in the dashboard was two hours early in summer without
+      # anything looking broken. Night detection measured the wrong hours
+      # through it too. Whoever lives elsewhere changes this here; it can
+      # also be overridden per installation under Settings.
+      TZ: "${AUSPEX_TIMEZONE:-Europe/Berlin}"
+      Auspex__BaseUrl: "http://127.0.0.1:5380"
+      # Loopback by default: whoever wants the dashboard reachable on the
+      # network decides that deliberately in the .env rather than getting it
+      # for free on deployment. For example:
+      #   CONTROL_URLS=http://192.168.1.61:5390
+      ASPNETCORE_URLS: "${CONTROL_URLS:-http://127.0.0.1:5390}"
+      # Lifts hard findings into Whiskers' existing rule "real errors
+      # (filtered, AI trigger)", which listens on all containers. That way no
+      # log alarm rule of its own is needed - handy, because rules can only be
+      # read over MCP, not created. As soon as a rule of your own exists on
+      # AUSPEX-FUND: set this to "false".
+      Notifications__EscalateHigh: "true"
+      # The password hash from the .env next door, not here: compose.yml is in
+      # git, and the hash differs per installation. Produce one with:
+      #   docker compose run --rm auspex-control --hash-password "yourPassword"
+      # Der Schluesselbund fuer Anmelde-Cookies und das Erweiterungs-Zeichen.
+      #
+      # Steht hier und nicht in der Dockerfile, weil der Docker-Linter dort
+      # "Auth" und "Key" im Namen sieht und einen Geheimnisfund meldet - ein
+      # Fehlalarm, es ist ein Pfad. Der Preis: wer das Abbild ohne dieses
+      # Compose startet, bekommt den relativen Rueckfall des Codes, und der
+      # Schluesselbund waere beim naechsten Neuaufbau weg. Auspex.Control
+      # meldet das beim Start als Warnung, statt es stillschweigend zu tun.
+      Auth__KeyPath: "/var/lib/auspex-control/keys"
+      Auth__PasswordHash: "${AUTH_PASSWORD_HASH:-}"
+      # With a reverse proxy in front (nginx-proxy-manager on the same host)
+      # the control plane has to believe its X-Forwarded-Proto - otherwise
+      # redirects after the sign-in point back at http and the session cookie
+      # gets no Secure flag. Only this one address counts as a proxy; nobody
+      # else may claim their origin.
+      #   TRUSTED_PROXY=127.0.0.1
+      Auth__TrustedProxies__0: "${TRUSTED_PROXY:-}"
+      # The router connection. Without ROUTER_USER/ROUTER_PASSWORD the whole
+      # router section does not appear - neither in the navigation nor under
+      # its address. On a Fritz!Box that belongs to be an account of its own
+      # with the right "FRITZ!Box settings", not your own.
+      #
+      # Careful: a Fritz!Box knows no fine-grained rights per service. Such an
+      # account can do everything the menu can - Auspex would hold the
+      # network's configuration in its hand. Whoever wants to watch first sets
+      # ROUTER_READONLY=true: the complete catalogue stays visible, but
+      # nothing can be triggered.
+      Router__Host: "${ROUTER_HOST:-192.168.1.1}"
+      Router__User: "${ROUTER_USER:-}"
+      Router__Password: "${ROUTER_PASSWORD:-}"
+      Router__ReadOnly: "${ROUTER_READONLY:-false}"
+      # The origin of destinations: who owns the address, in which country and
+      # which city it stands.
+      #
+      # Looked up exclusively in LOCAL files. A geo API would learn, on every
+      # lookup, where this household transmits - address by address,
+      # continuously, over months. That is exactly what Auspex is built
+      # against. So what gets downloaded is a file, not an answer: the
+      # provider learns that somebody fetched their database once a month,
+      # and nothing else.
+      #
+      # The path lives on the volume, not in the image - otherwise the
+      # roughly 100 MB would have to be fetched again after every rebuild.
+      Geo__Path: "/var/lib/auspex-control/geo"
+      # Explicitly here and not as a default in the code: the first run
+      # fetches around 90 MB and writes 717,000 address ranges from it; with
+      # the city another 90 MB and 7.9 million lines come on top. That does
+      # not belong going over a home line unasked just because somebody
+      # started the container - so the decision sits somewhere that belongs
+      # to a person, not in a default value.
+      #
+      # Off only means "do not fetch". Data already present keeps being used;
+      # the lookup does not hang off this switch.
+      Geo__Enabled: "${GEO_ENABLED:-true}"
+      # The city costs a 90 MB download and a pass over 7.9 million lines -
+      # for a value that names only a node on large distribution networks
+      # anyway. Whoever is content with operator and country sets this false.
+      Geo__City: "${GEO_CITY:-true}"
+      # Which address the resolver is reachable under on the LAN. For the
+      # interface only: it suggests it as the local DNS server rather than
+      # having somebody type it out. Guessing wrong would be expensive here.
+      AUSPEX_LAN_IP: "${AUSPEX_LAN_IP:-}"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:5390/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - auspex-control-data:/var/lib/auspex-control
+      - auspex-shared:/var/lib/auspex-shared
+    logging:
+      driver: json-file
+      options:
+        # Whiskers reads container logs; without rotation the file eventually
+        # gets so large that every query against it runs into a timeout.
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  auspex-var:
+  auspex-control-data:
+  auspex-shared:

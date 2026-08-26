@@ -1,0 +1,282 @@
+@page "/dossier"
+@rendermode InteractiveServer
+@inject Auspex.Control.Services.Geo.DossierService Dossiers
+@inject Auspex.Control.Services.Localization.Strings T
+@inject NavigationManager Nav
+@using Auspex.Control.Services.Geo
+
+<PageTitle>Auspex · @T.NavDossier</PageTitle>
+
+<h1>@T.TitleDossier</h1>
+<p class="sub">@T.DossierIntro</p>
+
+<div class="panel note is-warn">
+    @* The limit stands on the page itself, not in the documentation. Whoever
+       reads figures here should know what they do NOT say - otherwise "no
+       entry" gets read as "sent nothing". *@
+    <p class="muted m-0 t-md">@T.DossierLimit</p>
+</div>
+
+<div class="toolbar">
+    <select @bind="_device" @bind:after="LoadAsync">
+        <option value="">@T.ChooseDevice …</option>
+        @foreach (var (name, queries) in _devices)
+        {
+            <option value="@name">@name (@queries.ToString("N0"))</option>
+        }
+    </select>
+    <select @bind="_hours" @bind:after="LoadAsync">
+        <option value="24">@T.LastHours(24)</option>
+        <option value="168">@T.LastDays(7)</option>
+        <option value="720">@T.LastDays(30)</option>
+    </select>
+    <div class="spacer"></div>
+    @if (_running)
+    {
+        <span class="muted t-md">@T.Loading</span>
+    }
+</div>
+
+@if (_dossier is null)
+{
+    @if (_device.Length > 0 && !_running)
+    {
+        <div class="panel"><p class="muted m-0">@T.NoTraffic</p></div>
+    }
+}
+else
+{
+    <div class="cards">
+        <div class="card">
+            <div class="label">@T.CardTotal</div>
+            <div class="value">@_dossier.Total.ToString("N0")</div>
+            <div class="hint">
+                @(_dossier.First is { } e ? T.WatchedSince(T.ShortDateTime(e)) : "")
+            </div>
+        </div>
+        @* The most important figure on the page: what never went out at all.
+           It deliberately stands BEFORE the recipients - without it you read
+           the list below as the device's entire behaviour. *@
+        <div class="card">
+            <div class="label">@T.CardNeverLeft</div>
+            <div class="value">@_dossier.Blocked.ToString("N0")</div>
+            <div class="hint">@T.CardNeverLeftNote</div>
+        </div>
+        @* Answered but never left the house: the destination is indoors.
+           Without this card the router would sit under "operator unknown"
+           and therefore among the strangers. *@
+        @if (_dossier.Local > 0)
+        {
+            <div class="card">
+                <div class="label">@T.CardStayedHome</div>
+                <div class="value">@_dossier.Local.ToString("N0")</div>
+                <div class="hint">@T.CardStayedHomeNote</div>
+            </div>
+        }
+        <div class="card">
+            <div class="label">@T.CardKnownTarget</div>
+            <div class="value">
+                @((_dossier.PassedThrough - _dossier.WithoutDestination - _dossier.Local).ToString("N0"))
+            </div>
+            <div class="hint">@T.CardKnownTargetNote(_dossier.Operator.Count(x => !x.Local))</div>
+        </div>
+        @if (_dossier.WithoutDestination > 0)
+        {
+            <div class="card">
+                <div class="label">@T.CardUnknownTarget</div>
+                <div class="value">@_dossier.WithoutDestination.ToString("N0")</div>
+                <div class="hint">@T.CardUnknownTargetNote</div>
+            </div>
+        }
+    </div>
+
+    @* An empty program column means "no sensor runs here", not "no program
+       sent anything". Without that distinction the absence gets read as a
+       statement. *@
+    @if (!_dossier.SensorRunning)
+    {
+        <div class="panel note">
+            <p class="mb-2"><strong>@T.NoSensor</strong></p>
+            <p class="muted m-0 t-md">@T.NoSensorExplained</p>
+        </div>
+    }
+    else
+    {
+        <div class="panel note is-warn">
+            <p class="muted m-0 t-md">@T.SensorGap</p>
+        </div>
+    }
+
+    @if (_dossier.Operator.Count == 0)
+    {
+        <div class="panel">
+            <p class="muted m-0">
+                @(_dossier.PassedThrough == 0 ? T.NothingAllowed : T.OriginNotYet)
+            </p>
+        </div>
+    }
+    else
+    {
+        var sum = Math.Max(1, _dossier.Operator.Sum(b => b.Queries));
+
+        @foreach (var b in _dossier.Operator)
+        {
+            <div class="panel">
+                <div class="toolbar">
+                    <h2 class="m-0" title="@(b.Local ? T.OwnNetworkTitle : null)">
+                        @(b.Local ? T.OwnNetwork : b.Operator ?? T.UnknownOperator)
+                    </h2>
+                    @if (b.Country is { Length: > 0 })
+                    {
+                        <span class="pill">@b.Country</span>
+                    }
+                    @if (b.City is { Length: > 0 })
+                    {
+                        @* Uncertain does not mean wrong - it means the value
+                           names a node and not a headquarters. Leaving it out
+                           would be more convenient and less honest. *@
+                        <span class="pill @(b.CityUncertain ? "is-idle" : null)"
+                              title="@(b.CityUncertain ? T.CityUncertainTitle : null)">
+                            @b.City@(b.CityUncertain ? " ~" : "")
+                        </span>
+                    }
+                    @if (b.Asn is { } asn)
+                    {
+                        @* AS@(asn) and not AS@asn: Razor takes an @ directly after a
+                           letter for the start of an email address and prints
+                           it unchanged. The page literally showed "AS@asn". *@
+                        <span class="mono muted t-xs">AS@(asn)</span>
+                    }
+                    <div class="spacer"></div>
+                    <span class="muted t-md">
+                        @T.QueryShare(b.Queries.ToString("N0"),
+                            (int)Math.Round(100.0 * b.Queries / sum))
+                    </span>
+                </div>
+
+                @* One bar per recipient: the share is quicker to take in while
+                   skimming than the number beside it. *@
+                <div class="share" aria-hidden="true">
+                    <i style="width:@(Math.Max(1, 100.0 * b.Queries / sum).ToString("0.#",
+                        System.Globalization.CultureInfo.InvariantCulture))%"></i>
+                </div>
+
+                <table class="mt-3">
+                    <thead>
+                    <tr>
+                        <th>@T.Domain</th>
+                        <th class="num">@T.CardQueries</th>
+                        <th>@T.ColumnFirstSeen</th>
+                        <th class="num">@T.ColumnAddresses</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var d in b.Domains)
+                    {
+                        <tr>
+                            <td class="mono wrap">@d.Domain</td>
+                            <td class="num">@d.Queries.ToString("N0")</td>
+                            <td class="muted t-sm">@T.ShortDateTime(d.First)</td>
+                            <td class="num muted" title="@string.Join(", ", d.Addresses.Take(12))">
+                                @d.Addresses.Count
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+
+                @if (b.Programs.Count > 0)
+                {
+                    <p class="mono muted t-xs mb-2 mt-3">@T.Programs</p>
+                    <div class="programs">
+                        @foreach (var pr in b.Programs)
+                        {
+                            <span class="program">
+                                <b>@pr.Process</b>
+                                <i>@T.ConnectionCount(pr.Connections)</i>
+                                @if (pr.BytesOut is { } outbound && outbound > 0)
+                                {
+                                    <i title="@T.BytesLowerBound">↑ @T.DataVolume(outbound)</i>
+                                }
+                                @if (pr.BytesIn is { } inbound && inbound > 0)
+                                {
+                                    <i title="@T.BytesLowerBound">↓ @T.DataVolume(inbound)</i>
+                                }
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (_dossier.ProgramsWithoutMapping.Count > 0)
+        {
+            @* Destinations no name resolved to - hard-wired addresses, say. They
+               belong shown: a program connecting past DNS is precisely worth
+               a look. *@
+            <div class="panel">
+                <h2>@T.ProgramsWithoutTarget</h2>
+                <div class="programs">
+                    @foreach (var pr in _dossier.ProgramsWithoutMapping)
+                    {
+                        <span class="program">
+                            <b>@pr.Process</b>
+                            <i>@T.ConnectionCount(pr.Connections)</i>
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+
+        <p class="muted t-xs">@T.GeoSourcesNote</p>
+    }
+}
+
+@code {
+    private IReadOnlyList<(string Device, long Queries)> _devices = [];
+    private Auspex.Control.Services.Geo.Dossier? _dossier;
+    private string _device = "";
+    private int _hours = 168;
+    private bool _running;
+
+    /// <summary>Called from a list: <c>/wohin?geraet=…</c>.</summary>
+    protected override async Task OnInitializedAsync()
+    {
+        _devices = await Dossiers.DevicesAsync(TimeSpan.FromHours(_hours));
+
+        var wanted = System.Web.HttpUtility
+            .ParseQueryString(new Uri(Nav.Uri).Query)["device"];
+        if (!string.IsNullOrWhiteSpace(wanted))
+        {
+            _device = wanted;
+            await LoadAsync();
+        }
+        else if (_devices.Count > 0)
+        {
+            // The loudest device is almost always the one you want to see.
+            _device = _devices[0].Device;
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_device.Length == 0)
+        {
+            _dossier = null;
+            return;
+        }
+
+        _running = true;
+        StateHasChanged();
+        try
+        {
+            _devices = await Dossiers.DevicesAsync(TimeSpan.FromHours(_hours));
+            _dossier = await Dossiers.ErstellenAsync(_device, TimeSpan.FromHours(_hours));
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+}

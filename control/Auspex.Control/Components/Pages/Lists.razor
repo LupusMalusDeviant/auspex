@@ -1,0 +1,197 @@
+@page "/lists"
+@rendermode InteractiveServer
+@inject IAuspexClient Auspex
+@inject Auspex.Control.Services.Localization.Strings T
+@implements IDisposable
+
+<PageTitle>Auspex · @T.TitleLists</PageTitle>
+
+<h1>@T.TitleLists</h1>
+<p class="sub">@T.ListsIntro</p>
+
+@if (_message is not null)
+{
+    <div class="panel"><p class="muted m-0">@_message</p></div>
+}
+
+<div class="panel">
+    <div class="toolbar">
+        <h2 class="m-0">@T.ActiveLists</h2>
+        <div class="spacer"></div>
+        <button @onclick="RefreshAsync" disabled="@_busy">@T.Refresh</button>
+    </div>
+
+    @if (_lists?.Managed is not { Length:> 0 })
+    {
+        <p class="muted m-0">@T.NoManagedList</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+            <tr>
+                <th>@T.ColumnList</th>
+                <th>@T.ColumnKind</th>
+                <th class="num">@T.ColumnRules</th>
+                <th class="num">@T.ColumnSkipped</th>
+                <th>@T.ColumnStatus</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var list in _lists.Managed)
+            {
+                var stats = Stats(list.Name);
+                <tr>
+                    <td>
+                        <strong>@list.Name</strong>
+                        <br /><span class="mono muted t-xs">@list.Url</span>
+                    </td>
+                    <td class="muted">@(list.Allow ? T.KindExceptions : T.KindBlocks)</td>
+                    <td class="num">@(stats?.Rules.ToString("N0") ?? "–")</td>
+                    <td class="num muted">@(stats?.Skipped.ToString("N0") ?? "–")</td>
+                    <td>
+                        @if (list.Enabled)
+                        {
+                            <span class="tag allowed">@T.ListActive</span>
+                        }
+                        else
+                        {
+                            <span class="tag neutral">@T.ListOff</span>
+                        }
+                    </td>
+                    <td>
+                        <button @onclick="() => ToggleAsync(list)" disabled="@_busy">
+                            @(list.Enabled ? T.TurnOffShort : T.TurnOnShort)
+                        </button>
+                        <button @onclick="() => RemoveAsync(list)" disabled="@_busy">@T.Remove</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="panel">
+    <h2>@T.ProvenLists</h2>
+    <table>
+        <thead>
+        <tr><th>@T.ColumnList</th><th>@T.ColumnWhatFor</th><th></th></tr>
+        </thead>
+        <tbody>
+        @foreach (var known in _lists?.Known ?? [])
+        {
+            <tr>
+                <td><strong>@known.Name</strong></td>
+                <td class="muted">@T.ListDescription(known.Name, known.Description)</td>
+                <td>
+                    @if (IsAdded(known.Name))
+                    {
+                        <span class="muted">@T.AlreadyAdded</span>
+                    }
+                    else
+                    {
+                        <button class="primary" @onclick="() => AddKnownAsync(known)" disabled="@_busy">
+                            @T.Add
+                        </button>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<div class="panel">
+    <h2>@T.OwnList</h2>
+    <div class="toolbar">
+        <input type="text" placeholder="@T.ColumnName" @bind="_newName" style="min-width:160px" />
+        <input type="text" placeholder="https://…" @bind="_newUrl" style="min-width:320px" />
+        <label class="muted"><input type="checkbox" @bind="_newAllow" /> @T.ExceptionList</label>
+        <button class="primary" @onclick="AddCustomAsync"
+                disabled="@(_busy || string.IsNullOrWhiteSpace(_newName) || string.IsNullOrWhiteSpace(_newUrl))">
+            @T.Add
+        </button>
+    </div>
+    <p class="muted m-0">@T.OnlyHttpAddresses</p>
+</div>
+
+@code {
+    private ListsResponse? _lists;
+    private string _newName = "";
+    private string _newUrl = "";
+    private bool _newAllow;
+    private bool _busy;
+    private string? _message;
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ => await InvokeAsync(async () =>
+        {
+            if (_busy) return;
+            await RefreshAsync();
+            StateHasChanged();
+        }), null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20));
+    }
+
+    private async Task RefreshAsync() => _lists = await Auspex.GetListsAsync();
+
+    private ListStats? Stats(string name)
+        => _lists?.Stats is { } s && s.TryGetValue(name, out var found) ? found : null;
+
+    private bool IsAdded(string name)
+        => _lists?.Managed?.Any(m => m.Name == name) ?? false;
+
+    private async Task AddKnownAsync(KnownList known)
+        => await AddAsync(new ManagedList(known.Name, known.Url, known.Allow, true, DateTimeOffset.UtcNow));
+
+    private async Task AddCustomAsync()
+    {
+        await AddAsync(new ManagedList(_newName.Trim(), _newUrl.Trim(), _newAllow, true, DateTimeOffset.UtcNow));
+        _newName = "";
+        _newUrl = "";
+        _newAllow = false;
+    }
+
+    private async Task AddAsync(ManagedList list)
+    {
+        _busy = true;
+        _message = T.ListLoading(list.Name);
+        StateHasChanged();
+
+        // The resolver downloads the list when it is added and rebuilds the rule
+        // set — with large lists that takes a moment.
+        _message = await Auspex.AddListAsync(list)
+            ? T.ListAdded(list.Name)
+            : T.ListNotAdded(list.Name);
+
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task ToggleAsync(ManagedList list)
+    {
+        _busy = true;
+        var ok = await Auspex.SetListEnabledAsync(list.Name, !list.Enabled);
+        _message = ok
+            ? T.ListToggled(list.Name, !list.Enabled)
+            : T.ChangeFailed;
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    private async Task RemoveAsync(ManagedList list)
+    {
+        _busy = true;
+        _message = await Auspex.RemoveListAsync(list.Name)
+            ? T.ListRemoved(list.Name)
+            : T.RemoveFailed;
+        await RefreshAsync();
+        _busy = false;
+    }
+
+    public void Dispose() => _timer?.Dispose();
+}

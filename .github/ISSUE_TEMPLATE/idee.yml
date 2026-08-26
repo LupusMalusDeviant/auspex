@@ -1,0 +1,33 @@
+name: Idee oder Wunsch
+description: Etwas, das Auspex können sollte.
+labels: ["idee"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Bitte zuerst [`docs/open-points.md`](../../blob/main/docs/open-points.md)
+        ansehen. Dort steht, was ansteht — und in einem eigenen Abschnitt auch,
+        was **bewusst nicht** geplant ist, mit Begründung.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem löst das
+      description: >
+        Nicht die Lösung, sondern der Anlass. Was geht heute nicht oder nur
+        umständlich?
+    validations:
+      required: true
+
+  - type: textarea
+    id: vorstellung
+    attributes:
+      label: Wie du es dir vorstellst
+    validations:
+      required: true
+
+  - type: textarea
+    id: sonst
+    attributes:
+      label: Was du sonst noch erwogen hast
+      description: Auch "gar nichts tun" ist eine Möglichkeit — warum reicht sie nicht?

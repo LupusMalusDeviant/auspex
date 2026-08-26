@@ -1,0 +1,142 @@
+@page "/router/log"
+@rendermode InteractiveServer
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · @T.TitleEventLog</PageTitle>
+
+    <h1>@T.TitleEventLog</h1>
+    <p class="sub">@T.EventLogIntro</p>
+
+    @if (_error is not null)
+    {
+        <div class="panel note is-danger"><p class="m-0 danger">@_error</p></div>
+    }
+
+    <div class="panel">
+        <div class="toolbar">
+            <input type="search" class="search" placeholder="@T.SearchEventLog"
+                   @bind="_search" @bind:event="oninput" />
+            <select @bind="_category">
+                <option value="">@T.AllAreas</option>
+                @foreach (var k in Kategorien)
+                {
+                    <option value="@k">@T.EventArea(k) (@_all.Count(e => e.Kategorie == k))</option>
+                }
+            </select>
+            <label class="check">
+                <input type="checkbox" @bind="_onlyErrors" /> @T.OnlyErrors
+            </label>
+            <div class="spacer"></div>
+            <span class="muted t-md">@T.MatchesOf(Hits.Count, _all.Count)</span>
+            <button @onclick="LoadAsync" disabled="@_running">@T.Refresh</button>
+        </div>
+
+        @if (_all.Count == 0 && !_running)
+        {
+            <p class="muted m-0">@T.NoEventLog</p>
+        }
+        else if (Hits.Count == 0)
+        {
+            <p class="muted m-0">@T.NoEntryMatches</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                <tr>
+                    <th>@T.ColumnWhen</th>
+                    <th>@T.ColumnArea</th>
+                    <th>@T.ColumnMessage</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var e in Hits.Take(_limit))
+                {
+                    <tr>
+                        <td class="mono t-sm">
+                            @e.Date<br /><span class="muted">@e.Time</span>
+                        </td>
+                        <td>
+                            <span class="pill @(e.IsError ? "is-off" : "")">@T.EventArea(e.Kategorie)</span>
+                        </td>
+                        <td class="@(e.IsError ? "danger" : "")">@e.Text</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+
+            @if (Hits.Count > _limit)
+            {
+                <div class="toolbar mt-3">
+                    <span class="muted t-md">@T.ShownOf(_limit, Hits.Count)</span>
+                    <button @onclick="() => _limit += 100">@T.AnotherHundred</button>
+                </div>
+            }
+        }
+    </div>
+</RouterGate>
+
+@code {
+    private IReadOnlyList<RouterLogEntry> _all = [];
+    private string _search = "";
+    private string _category = "";
+    private bool _onlyErrors;
+    private bool _running;
+    private int _limit = 100;
+    private string? _error;
+
+    private IEnumerable<string> Kategorien =>
+        _all.Select(e => e.Kategorie).Distinct().OrderBy(k => k);
+
+    private List<RouterLogEntry> Hits
+    {
+        get
+        {
+            IEnumerable<RouterLogEntry> q = _all;
+
+            if (_onlyErrors)
+            {
+                q = q.Where(e => e.IsError);
+            }
+            if (_category.Length > 0)
+            {
+                q = q.Where(e => e.Kategorie == _category);
+            }
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var n = _search.Trim();
+                q = q.Where(e => e.Text.Contains(n, StringComparison.OrdinalIgnoreCase)
+                                 || e.Date.Contains(n, StringComparison.Ordinal));
+            }
+
+            return q.ToList();
+        }
+    }
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _running = true;
+        _error = null;
+        _limit = 100;
+        try
+        {
+            var reply = await Router.GetLogAsync();
+            _error = reply.Error;
+            _all = reply.Entries;
+        }
+        catch (Exception ex)
+        {
+            _error = T.EventLogNotReadable(ex.Message);
+        }
+        finally
+        {
+            _running = false;
+        }
+    }
+
+}

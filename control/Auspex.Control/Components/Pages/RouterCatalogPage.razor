@@ -1,0 +1,281 @@
+@page "/router/catalog"
+@rendermode InteractiveServer
+@inject IRouterAdmin Router
+@inject Auspex.Control.Services.Localization.Strings T
+@using Auspex.Control.Services.Router
+
+<RouterGate>
+    <PageTitle>Auspex · @T.TitleCatalogue</PageTitle>
+
+    <h1>@T.TitleCatalogue</h1>
+    <p class="sub">@T.CatalogueIntro</p>
+
+    @if (_catalogue is null)
+    {
+        <div class="panel"><p class="muted m-0">@(_error ?? T.Loading)</p></div>
+    }
+    else
+    {
+        <div class="panel">
+            <div class="toolbar m-0">
+                <input type="search" class="search" placeholder="@T.SearchPrompt"
+                       @bind="_search" @bind:event="oninput" />
+                <select @bind="_area">
+                    <option value="">@T.AllAreas</option>
+                    @foreach (var b in Ranges)
+                    {
+                        <option value="@b">@T.RouterArea(b)</option>
+                    }
+                </select>
+                <label class="check">
+                    <input type="checkbox" @bind="_onlyChanging" /> @T.OnlyChanging
+                </label>
+                <div class="spacer"></div>
+                <span class="muted t-md">@T.MatchesOf(Hits.Count, _catalogue.ActionCount)</span>
+            </div>
+        </div>
+
+        @if (Hits.Count == 0)
+        {
+            <div class="panel">
+                <p class="muted m-0">@T.NothingFound</p>
+            </div>
+        }
+
+        @foreach (var group in Hits
+            .GroupBy(t => RouterSearch.Area(t.Service))
+            .OrderBy(g => RouterSearch.BereichsRang(g.Key)))
+        {
+            <div class="panel">
+                <div class="toolbar">
+                    <h2 class="m-0">@T.RouterArea(group.Key)</h2>
+                    <div class="spacer"></div>
+                    <span class="muted t-md">@T.ActionCount(group.Count())</span>
+                </div>
+
+                @foreach (var serviceGroup in group.GroupBy(t => t.Service).OrderBy(g => g.Key.DisplayName))
+                {
+                    <p class="mono muted t-xs mb-2">@serviceGroup.Key.DisplayName</p>
+
+                    <div class="divided mb-4">
+                        @foreach (var t in serviceGroup.OrderBy(x => x.Action.Name))
+                        {
+                            var a = t.Action;
+                            var key = t.Service.ControlUrl + "#" + a.Name;
+                            <div class="item">
+                                <div class="toolbar m-0">
+                                    <strong class="mono t-md">@a.Name</strong>
+                                    @if (a.IsReadOnly)
+                                    {
+                                        <span class="pill">@T.ActionReads</span>
+                                    }
+                                    else if (a.IsDangerous)
+                                    {
+                                        <span class="pill is-off">@T.ActionInvasive</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="pill is-idle">@T.ActionChanges</span>
+                                    }
+                                    <div class="spacer"></div>
+                                    <button @onclick="() => Toggle(key)">
+                                        @(_open == key ? T.Close : T.Open)
+                                    </button>
+                                </div>
+
+                                @if (_open == key)
+                                {
+                                    <div class="mt-3">
+                                        @foreach (var arg in a.In)
+                                        {
+                                            <div class="field">
+                                                <label>
+                                                    @arg.Label
+                                                    <span class="mono t-xs">@arg.DataType</span>
+                                                    @if (arg.Minimum is not null || arg.Maximum is not null)
+                                                    {
+                                                        <span class="t-xs">@($"· {arg.Minimum}–{arg.Maximum}")</span>
+                                                    }
+                                                </label>
+                                                @if (arg.HasChoices)
+                                                {
+                                                    <select value="@Value(key, arg.Name)"
+                                                            @onchange="e => Set(key, arg.Name, e.Value?.ToString())">
+                                                        <option value=""></option>
+                                                        @foreach (var w in arg.AllowedValues)
+                                                        {
+                                                            <option value="@w">@w</option>
+                                                        }
+                                                    </select>
+                                                }
+                                                else if (arg.IsBoolean)
+                                                {
+                                                    <select value="@Value(key, arg.Name)"
+                                                            @onchange="e => Set(key, arg.Name, e.Value?.ToString())">
+                                                        <option value="0">@T.NoZero</option>
+                                                        <option value="1">@T.YesOne</option>
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <input value="@Value(key, arg.Name)"
+                                                           type="@(arg.IsNumeric ? "number" : "text")"
+                                                           @onchange="e => Set(key, arg.Name, e.Value?.ToString())" />
+                                                }
+                                            </div>
+                                        }
+
+                                        @if (!a.IsReadOnly && Router.ReadOnly)
+                                        {
+                                            <p class="muted t-md m-0">@T.ActionLocked</p>
+                                        }
+                                        else if (a.IsDangerous && _confirmed != key)
+                                        {
+                                            <p class="danger t-md mb-2">@T.ActionDangerous</p>
+                                            <button @onclick="() => _confirmed = key">@T.RunAnyway</button>
+                                        }
+                                        else
+                                        {
+                                            <button class="primary" @onclick="() => RunAsync(t.Service, a)"
+                                                    disabled="@_running">
+                                                @T.Run
+                                            </button>
+                                        }
+
+                                        @if (_results.TryGetValue(key, out var r))
+                                        {
+                                            <div class="mt-3">
+                                                @if (!r.Ok)
+                                                {
+                                                    <p class="danger m-0">@r.Error</p>
+                                                }
+                                                else if (r.Values.Count == 0)
+                                                {
+                                                    <p class="ok m-0">@T.Ran</p>
+                                                }
+                                                else
+                                                {
+                                                    <table>
+                                                        <tbody>
+                                                        @foreach (var (k, v) in r.Values)
+                                                        {
+                                                            <tr>
+                                                                <td>@Short(k)</td>
+                                                                <td class="mono wrap">@v</td>
+                                                            </tr>
+                                                        }
+                                                        </tbody>
+                                                    </table>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</RouterGate>
+
+@code {
+    [SupplyParameterFromQuery(Name = "service")]
+    public string? ServiceFilter { get; set; }
+
+    private RouterCatalog? _catalogue;
+    private string? _error;
+    private string _search = "";
+    private string _area = "";
+    private bool _onlyChanging;
+    private string? _open;
+    private string? _confirmed;
+    private bool _running;
+
+    private readonly Dictionary<string, Dictionary<string, string?>> _inputs = [];
+    private readonly Dictionary<string, RouterResult> _results = [];
+
+    private IEnumerable<string> Ranges =>
+        _catalogue is null
+            ? []
+            : _catalogue.Services.Where(s => s.Actions.Count > 0)
+                .Select(RouterSearch.Area).Distinct()
+                .OrderBy(RouterSearch.BereichsRang);
+
+    private List<(RouterServiceInfo Service, RouterAction Action)> Hits
+    {
+        get
+        {
+            if (_catalogue is null)
+            {
+                return [];
+            }
+
+            var q = _catalogue.Services
+                .Where(s => ServiceFilter is null || s.ControlUrl == ServiceFilter)
+                .Where(s => _area.Length == 0 || RouterSearch.Area(s) == _area)
+                .SelectMany(s => s.Actions.Select(a => (Service: s, Action: a)));
+
+            if (_onlyChanging)
+            {
+                q = q.Where(t => !t.Action.IsReadOnly);
+            }
+
+            return q.Where(t => RouterSearch.Matches(t.Service, t.Action, _search.Trim())).ToList();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _catalogue = await Router.GetCatalogAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = T.RouterUnreachable(ex.Message);
+        }
+    }
+
+    private void Toggle(string key)
+    {
+        _open = _open == key ? null : key;
+        _confirmed = null;
+    }
+
+    private string Value(string key, string name) =>
+        _inputs.TryGetValue(key, out var d) && d.TryGetValue(name, out var v) ? v ?? "" : "";
+
+    private void Set(string key, string name, string? value)
+    {
+        if (!_inputs.TryGetValue(key, out var d))
+        {
+            d = [];
+            _inputs[key] = d;
+        }
+        d[name] = value;
+    }
+
+    private async Task RunAsync(RouterServiceInfo service, RouterAction action)
+    {
+        var key = service.ControlUrl + "#" + action.Name;
+        _running = true;
+        try
+        {
+            var values = _inputs.TryGetValue(key, out var d)
+                ? d
+                : new Dictionary<string, string?>();
+            _results[key] = await Router.InvokeAsync(
+                service.Name, service.ControlUrl, action.Name, values);
+        }
+        finally
+        {
+            _running = false;
+            _confirmed = null;
+        }
+    }
+
+    private static string Short(string name) =>
+        name.StartsWith("New", StringComparison.Ordinal) && name.Length > 3 ? name[3..] : name;
+}

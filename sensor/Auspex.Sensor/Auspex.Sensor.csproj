@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!--
+      Bewusst net10.0 und NICHT net10.0-windows.
+
+      Der Sensor liest die Verbindungstabelle über P/Invoke nach iphlpapi -
+      das ist ein DllImport und bindet erst zur Laufzeit. Damit lässt sich
+      das Projekt auf jedem Rechner bauen und prüfen, auch auf dem
+      Linux-Bauserver, und die Windows-Abhängigkeit steht dort, wo sie
+      hingehört: in einer Prüfung zur Laufzeit, nicht in der Zielplattform.
+    -->
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Auspex.Sensor</RootNamespace>
+    <AssemblyName>auspex-sensor</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Getrimmt und als eine Datei: der Sensor soll aus dem Dashboard
+      herunterladbar und ohne Vorbedingung ausfuehrbar sein. Eigenstaendig
+      heisst, die Laufzeit steckt mit drin - ungetrimmt waeren das rund
+      70 MB. Trimmen setzt voraus, dass nichts nur ueber Reflexion erreichbar
+      ist; die Serialisierung laeuft deshalb ueber den Quellcodegenerator.
+    -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <PublishSingleFile>true</PublishSingleFile>
+    <TrimMode>full</TrimMode>
+    <!-- Warnungen beim Trimmen sind hier Fehler: eine getrimmte Datei, die
+         zur Laufzeit ein leeres Objekt liefert, faellt sonst niemandem auf. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Eine Quelle: die Datei VERSION im Wurzelverzeichnis. Ein Test
+         prueft, dass Resolver, Erweiterung und beide .NET-Projekte
+         dieselbe Zahl tragen - vier Stellen laufen sonst auseinander,
+         und die Oberflaeche zeigt dann eine Fassung, die es nirgends
+         gibt. -->
+    <Version>0.10.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Auspex.Sensor.Tests" />
+  </ItemGroup>
+
+</Project>
