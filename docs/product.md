@@ -2,7 +2,7 @@
 
 What the tool can do, how it is built, what has been measured and what is
 deliberately absent. The [README](../README.md) answers *what and why* and
-gets you running — the rest is here.
+gets you running; everything else is described here.
 
 - [Router](#router)
 - [Architecture](#architecture)
@@ -40,8 +40,9 @@ firmware brings new actions along by itself. The input fields in the
 catalogue come from the permitted values, types and limits stated in the
 description.
 
-Seven pages: overview, devices — the router's inventory with the MAC as the
-stable identifier, unlike the changing source IP in the query log — Wi-Fi,
+Seven pages: overview; devices, which shows the router's inventory using the
+MAC address as a stable identifier rather than the changing source IP of the
+query log; Wi-Fi,
 port mappings, IPv4, the event log, and the complete catalogue.
 
 **Without a stored account the section does not appear**, neither in the
@@ -50,19 +51,20 @@ an interface that shows buttons which cannot do anything trains people to
 click things away.
 
 Two things there have to be taken seriously. A Fritz!Box knows **no
-fine-grained rights per service** — an account with "FRITZ!Box settings" can
+fine-grained rights per service.** An account with "FRITZ!Box settings" can
 do everything the menu can. Up to that point Auspex can only refuse answers;
 past it, it holds the network's configuration in its hand. Whoever wants to
 watch first sets `ROUTER_READONLY=true`: the complete catalogue stays
 visible, but nothing can be triggered. And actions that can cut off access to
-the router itself — switching Wi-Fi off, DHCP off, changing the LAN IP —
+the router itself, such as switching off Wi-Fi or DHCP or changing the LAN
+IP,
 demand an additional confirmation.
 
 Anything signed in goes over TLS on port 49443. Digest sign-in protects the
 password, not the content, and the content would hold Wi-Fi keys and the
 inventory of the network.
 
-The device list, incidentally, comes from a Fritz!Box **without a sign-in** —
+The device list comes from a Fritz!Box without a sign-in,
 so a wrongly stored account falls back to the open route for read actions, in
 order that the list still stands.
 
@@ -89,13 +91,13 @@ Deliberately split, because the languages have different strengths:
 ```
 
 The resolver runs on its own. If the dashboard goes down, Auspex keeps
-filtering — the control plane is an observer, not a precondition.
+filtering. The control plane observes; it is not a precondition.
 
 ## What Auspex can do
 
 **Rule formats.** Hosts files, bare domain lists, AdBlock syntax
 (`||domain^`, `@@||domain^`) and wildcards (`*.domain`). Element and cosmetic
-filters are counted and skipped — they need HTTP context, which a DNS
+filters are counted and skipped, because they need HTTP context that a DNS
 resolver does not have.
 
 The matching semantics are deliberately different, because the formats mean
@@ -112,40 +114,43 @@ Exceptions (`@@`) always beat block rules, across lists as well. Patterns
 that appear on both sides are reported as a conflict at startup.
 
 **CNAME cloaking.** The most widespread trick against DNS filters: the site
-creates a subdomain of its own — `metrics.newspaper.example` — and has it
+creates a subdomain of its own, such as `metrics.newspaper.example`, and has
+it
 point at the tracker over CNAME. The first-party subdomain is on no
 blocklist, so the tracker gets through although its target would be blocked.
 
 Auspex therefore checks the CNAME chain of every answer against the same rule
-set as the name that was asked for, with the same profile — so client
+set as the name that was asked for, using the same profile, so that client
 exceptions and time windows apply here too. Demonstrated live: `www.otto.de`
 is on no list but points over CNAME at `www.otto.akadns.net`; block that
 target and the first-party domain is blocked, and the query log says why.
 
-The answer is still cached — it is valid, and the check runs again on the
+The answer is still cached, since it is valid and the check runs again on the
 next hit. Without that the first query would be blocked and every following
 one would run through unfiltered.
 
 Switchable through `check_cname`: an over-aggressive list can take
 first parties with it this way. So the triggering target appears in the query
-log and in the dashboard — otherwise a block on a harmless-looking domain
+log and in the dashboard. Without it, a block on a harmless-looking domain
 would be inexplicable. `auspex_blocked_cname_total` shows how much the check
 catches.
 
 **Browsers going round the filter.** Firefox switches on its own encrypted
-resolution and ignores the resolver on the network — the filter then applies
+resolution and ignores the resolver on the network, so the filter applies
 to nothing that happens in that browser, and nobody notices.
 
 Against that, `use-application-dns.net` is answered with NXDOMAIN; Firefox
 reads that as "the network filters" and leaves DoH off. NXDOMAIN necessarily,
-regardless of the configured block mode — a blocked `0.0.0.0` is read by
+regardless of the configured block mode, because a blocked `0.0.0.0` is read
+by
 Firefox as "no filter" and it carries on past.
 
 In addition `block_services: ["doh-anbieter"]` blocks the endpoints of the
 known public DoH providers, so that a manually switched browser falls back
 too. **Our own upstream is not affected**, although `dns.quad9.net` is on
 that list: Auspex resolves its hostname through the bootstrap resolver, not
-through its own filter. Checked live — `dns.quad9.net` is blocked for
+through its own filter. Verified on a running system: `dns.quad9.net` is
+blocked for
 clients, and Auspex keeps resolving through it.
 
 **The origin of every decision.** Every rule carries its list and line
@@ -157,7 +162,7 @@ Two gaps remain: after a restart the cache is empty, and a name asked for
 three times a day never reaches the prefetch threshold within one TTL.
 
 The control plane knows from the stored history which names the network
-really needs and hands them to the resolver — on a schedule, and immediately
+really needs and hands them to the resolver, on a schedule and immediately
 when it notices the resolver has restarted. Blocked names are skipped, and
 the queries appear neither in the query log nor in the learning store:
 otherwise the analysis the list comes from would be feeding itself.
@@ -172,7 +177,8 @@ SERVFAIL is not cached; the DO bit is part of the cache key.
 
 **Upstreams.** Plain UDP/TCP, DoT and DoH (RFC 8484). Either `failover` or
 `race`. Whatever delivers repeated errors lands on the bench for a while. A
-bootstrap resolver of its own resolves the hostnames of the DoH/DoT targets —
+bootstrap resolver of its own resolves the hostnames of the DoH and DoT
+targets,
 otherwise Auspex asks the system at startup, and after setup that points at
 Auspex itself.
 
@@ -183,7 +189,7 @@ This is the part pure blocklists structurally cannot do.
 **Names for devices behind a tunnel.** The router answers reverse lookups for
 its own network and knows nothing beyond it. A device reached over Tailscale
 arrives with an address from `100.64.0.0/10` that the router has never seen, so
-it would stay nameless permanently — waiting does not help, because there is
+it would stay nameless permanently. Waiting does not help, because there is
 nothing for the router to learn. Tailscale's own resolver, however, does answer
 reverse lookups for those addresses.
 
@@ -234,9 +240,9 @@ be repaired.
 Three things about how this works were decided deliberately.
 
 *It has to be clicked.* Auspex never quarantines a device by itself. False
-positives do happen — there is a detector whose whole job is finding them — and
-an automatic quarantine would take a device off the network in the middle of
-the night with nobody there to notice.
+positives do happen; there is a detector whose whole job is finding them. An
+automatic quarantine would take a device off the network in the middle of the
+night with nobody there to notice.
 
 *It acts on DNS, not on the router.* This keeps Auspex in control of the block
 and able to release it again. Cutting a device off at the router is possible
@@ -252,8 +258,8 @@ Before changing the profile, Auspex records which policy the device had.
 Without that, lifting the quarantine would set the device to `open` and
 silently discard a learn mode that may have taken two weeks to build up.
 
-**IoT learning mode.** Deny-by-default for devices you do not trust — in
-three steps, per client profile:
+**IoT learning mode.** Deny by default for devices you do not trust, set up in
+three steps per client profile:
 
 ```yaml
 clients:
@@ -274,15 +280,16 @@ Three decisions that make the mode usable at all:
 
 - **Only what the filter let through gets learned.** Otherwise the tracker
   that happened to be asked for during the learning window wanders
-  permanently into the allowlist — and the whole exercise would be back to
+  permanently into the allowlist, and the whole exercise would be back to
   front.
 - **Granularity `domain` through the public suffix list.**
   `cdn-3f8a.vendor.example` is `cdn-91cc.vendor.example` tomorrow; without
   generalising, the allowlist would be broken on day two. Without the public
   suffix list the naive rule "the last two labels" would let a whole country
   TLD through on `foo.co.uk`. Whoever wants it stricter takes `exact`.
-- **`max_entries` as a cap.** A device generating random names — broken, or
-  DNS tunnelling — must not flood the allowlist. When the cap is reached the
+- **`max_entries` as a cap.** A device generating random names, whether
+  because it is broken or because it is tunnelling, must not be able to flood
+  the allowlist. When the cap is reached the
   store reports `overflow` rather than being silently incomplete.
 
 Reverse lookups (`in-addr.arpa`, `ip6.arpa`) are neither learned nor blocked:
@@ -290,7 +297,7 @@ they do not belong to the question "which services does this device talk to",
 and blocking them turns every diagnosis into a guessing game.
 
 The dashboard shows per profile how long it has been since a new domain was
-added — that is the most usable signal that a learning window ran long
+added. That is the most usable signal that a learning window ran long
 enough.
 
 **Encrypted in both directions.** Auspex not only speaks DoH/DoT upwards but
@@ -299,7 +306,8 @@ DNS-over-HTTPS per RFC 8484, both methods (POST and `?dns=` as base64url).
 That way a device runs through the filter outside the home network too,
 without a VPN.
 
-Without a certificate the HTTPS listener speaks plain text only — meant for
+Without a certificate the HTTPS listener speaks plain text only, which is
+meant for
 running behind a reverse proxy. Its networks then have to be under
 `trusted_proxies`, or every query arrives with the proxy's address. But the
 list must not be drawn too widely: whoever you believe may invent any origin
@@ -307,7 +315,7 @@ they like through `X-Forwarded-For` and thereby hit other people's profiles
 and learning stores. Both cases are tested.
 
 **Device names instead of addresses.** Two sources: a fixed mapping in the
-configuration, and a reverse lookup against the router — a Fritz!Box answers
+configuration, and a reverse lookup against the router. A Fritz!Box answers
 PTR for its DHCP clients and thereby delivers exactly the names from the home
 network menu. The name runs through everything: query log, statistics,
 findings and all the way into the alarm message. "Suspected tunnelling on
@@ -315,10 +323,11 @@ living room TV" is usable; an IP address forces you to look it up.
 
 The resolution never runs in the query path: `Name()` always answers
 immediately from memory and at most kicks the lookup off in the background.
-If anonymisation is on in the query log, the name drops away with it — it
+If anonymisation is switched on in the query log, the name is dropped with the
+address, since it
 identifies the device just as uniquely as the address.
 
-**DNSSEC — without validating in-house, but not without effect.** Auspex does
+**DNSSEC, without validating in-house.** Auspex does
 not check the signature chain itself: validation of your own is
 security-critical code you do not get right on the side, and implemented
 wrongly it is worse than none. Two things Auspex does instead:
@@ -330,18 +339,20 @@ wrongly it is worse than none. Two things Auspex does instead:
   answer reveals whether it was validated (RFC 6840, without asking for the
   signatures themselves). That lands in the query log and as a rate in the
   dashboard. Whoever did not ask for it still does not get the AD bit set in
-  their answer — otherwise the answer suggests an assurance nobody asked for.
+  their answer, because otherwise the answer would imply a guarantee nobody
+  asked for.
 
 Checked live: `cloudflare.com` and `internetsociety.org` come back validated;
 `dnssec-failed.org` with a deliberately broken signature is rejected by the
 upstream (SERVFAIL). Whoever wants local validation puts a validating
-resolver such as Unbound in front as the upstream — the same display then
+resolver such as Unbound in front as the upstream. The same display then
 applies.
 
 For the record, because this document used to say otherwise: of the two
 obvious comparisons only Pi-hole validates in-house, through the dnsmasq it
 carries with it, and only once `dnssec=true` is switched on. AdGuard Home
-reads the upstream's AD bit and passes it on — exactly what happens here.
+reads the upstream's AD bit and passes it on, which is exactly what happens
+here.
 The difference to Auspex is smaller than it was claimed to be, and it was
 claimed in the competitor's favour.
 
@@ -360,13 +371,13 @@ are on file and can be blocked per profile or per time window:
         block_services: ["youtube", "tiktok", "roblox"]
 ```
 
-Internally these become perfectly ordinary block rules — after that there is
+Internally these become ordinary block rules, after which there is
 no special case anywhere else in the system. A typo in a service name makes
 the start fail rather than ending up as a silently permitted service. The
 catalogue is a curated selection; whatever is missing belongs in the
 configuration as an ordinary rule.
 
-**SafeSearch — per profile, and per time window.** Every large search engine
+**SafeSearch, per profile and per time window.** Every large search engine
 runs a second host that answers with filtered results. Auspex sends the
 device there:
 
@@ -432,13 +443,15 @@ services are reachable under real names and real certificates.
 
 **Block modes.** `nxdomain` (the default, with an SOA in the authority
 section so that clients cache negatively), `zeroip`, `refused`, `custom`. For
-types with no sensible substitute address — MX, TXT — NODATA is delivered
+types with no sensible substitute address, such as MX and TXT, NODATA is
+delivered
 rather than an invented answer.
 
 ## Persistence and analysis
 
 The data plane's ring buffer holds minutes. The question "what is this device
-actually doing all the time" needs weeks — and those live in the control
+actually doing all the time" needs weeks of data, and that lives in the
+control
 plane.
 
 **Ingest.** A background service fetches everything after the cursor
@@ -456,12 +469,14 @@ SQLite. Three things that can go wrong, and what is done about them:
 - **The data plane is gone.** The service logs it and carries on. A network
   hiccup must not leave a permanent gap.
 
-Grouping is by registrable domain, not by hostname — otherwise every CDN name
+Grouping is by registrable domain rather than by hostname. Otherwise every CDN
+name
 counts on its own. The Go side computes it along the way, because the public
 suffix list already lives there.
 
 **Detectors.** Nine heuristics run over a sliding one-hour window (the steady
-talker over the day). Every finding names the numbers it rests on — an alarm
+talker over the day). Every finding names the numbers it rests on, because an
+alarm
 you cannot recompute gets ignored after the third one:
 
 | Detector | Fires at | Typical false alarms |
@@ -477,7 +492,8 @@ you cannot recompute gets ignored after the third one:
 | `neues-geraet` | A device seen on the network for the first time | a visitor's phone |
 
 **Synchrony** (`gleichlauf`) is the view tools with per-device analysis
-cannot have at all. Taken singly each of these queries is unremarkable — it
+cannot have at all. Taken on its own, each of these queries is unremarkable;
+it
 is only the fact that several devices discover the same domain, unknown to
 all of them, at the same time that makes them interesting. Usually it is an
 update, sometimes something spreading. If even one of the devices already
@@ -487,27 +503,29 @@ knew the domain, it counts as everyday traffic and is not reported.
 commonest reason people switch DNS filters off again is silent breakage:
 something does not work and nobody connects it with the filter. The
 difference between "adverts while browsing" and "the app is hanging" is
-density — eight calls spread over an hour are normal, eight in five minutes
+density: eight calls spread over an hour are normal, eight in five minutes
 are a repetition loop.
 
 **Steady talkers** (`dauersender`) close that detector's blind spot.
 `wiederholungssturm` compares against a device's own history and sees only
 spikes; a device that has been running against a block equally loudly for
-days has no spike — factor one — and stayed invisible although it caused most
+days produces no spike, so its factor is one. It stayed invisible although it
+caused most
 of the load. Measured for real: 486 queries for one blocked name in 46
 minutes, not a single finding.
 
 It works without a finding too: in the **query log** every row has a button
 that blocks or allows the name. Deliberately the name and not the registrable
-domain — whoever wants to get rid of a single telemetry address does not want
+domain, because somebody who wants to get rid of a single telemetry address
+does not want
 to block the whole provider.
 
-Every such finding brings the matching exception with it — and as narrow as
+Every such finding brings the matching exception with it, and as narrow as
 possible: if only one name was affected, only that one is allowed. An
 exception on the whole registrable domain would open up the complete provider
 because of a single telemetry host. One click writes it: the control plane
 appends it to a shared file that the resolver reads as a list with
-`allow: true`, and kicks off a reload. No additional API route needed — the
+`allow: true`, and triggers a reload. No additional API route is needed; the
 list mechanism can already do it. Writing and reloading are reported
 separately: if the rule is in the file while the resolver happens to be
 unreachable, it applies at the next reload, and the interface says exactly
@@ -517,14 +535,15 @@ Two detectors need a baseline and stay silent until there is enough history
 (`BaselineWarmup`, two days by default). Without that every domain would be
 "new" in the first few hours and every finding therefore worthless. Within
 one hour exactly one entry comes into being per detector, client and subject
-— it grows with the evidence rather than repeating itself every five minutes.
+It grows with the evidence rather than repeating itself every five minutes.
 
 **Roll-up.** As soon as a day is complete it is rolled up once into daily
-totals — overall numbers, per device and per domain. After that the raw data
+totals: overall numbers, per device and per domain. After that the raw data
 may go without the history being lost: the analysis page additionally offers
 "the last 90 days" and "the last year" from that store.
 
-The roll-up happens when the day closes, not shortly before deletion — so the
+The roll-up happens when the day closes rather than shortly before deletion,
+so the
 moment does not hang off the retention setting, and a shortened retention
 tears no gap. The two sources stay separate and labelled in the interface:
 different resolution, and a view that switched silently between them would
@@ -542,14 +561,16 @@ additions close both:
 
 **Destinations.** For every answered query the resolver also delivers what
 the name pointed at. From that the control plane keeps one row per address
-and one per name-and-address pair — not one per query, which at around
+and one per name-and-address pair, rather than one per query, which at
+around
 140,000 queries a day is the difference between a table you can analyse and
 one that merely grows. Operator and country come from a range database that
 is refreshed in the background; the city is marked as *uncertain* wherever it
 names a node rather than a headquarters.
 
 **The sensor**, optionally, on Windows. It reports which process holds which
-connection — the one thing DNS cannot know. Opt-in, TCP only, no content, no
+connection, which is the one thing DNS cannot know. It is opt-in, reads TCP
+only, and transmits no content and no
 paths and no command lines. What it cannot see, the page says out loud: an
 empty program column means "no sensor runs here", not "no program sent
 anything".
@@ -568,12 +589,13 @@ finding as a recognisable line to stdout, and a log alarm rule picks it up.
 AUSPEX-FUND [high] tunneling-verdacht client=10.0.5.20 subject=tunnel-test.example :: Suspected DNS tunnelling over tunnel-test.example :: 70 distinct names, 70 queries, longest label 41 characters
 ```
 
-One line, no breaks — log rules work line by line, and a wrapped finding
+It is written as a single line without breaks, because log rules work line by
+line and a wrapped finding
 would match only halfway.
 
 There are two ways to hang this off the alerting.
 
-**Route 1 — without a new rule (`Notifications__EscalateHigh: "true"`).** The
+**Route 1: without a new rule** (`Notifications__EscalateHigh: "true"`). The
 existing rule "real errors (filtered, AI trigger)" listens on *all*
 containers and picks up `[ERROR]`, among other things. Hard findings get that
 prefix and thereby land in the existing channel:
@@ -587,7 +609,7 @@ new domain lands in it. That is the same approach as `check-cert-expiry.sh`
 on BurgCloud, which likewise writes into the existing rule rather than
 demanding a second channel.
 
-**Route 2 — a rule of its own.** More cleanly separated, but it has to be
+**Route 2: a rule of its own.** More cleanly separated, but it has to be
 created in the Whiskers UI: over MCP log alarms can only be read
 (`list_log_alerts`), not created. The model is the existing rule "new QR
 short link created":
@@ -602,7 +624,7 @@ After that `EscalateHigh` belongs on `false`, or both rules alert.
 
 Reporting happens at **warning** level, not error. A finding is not an
 application error, and without escalation the error rule should not fire on
-it — checked against 2058 lines of real container log from the test
+it, checked against 2058 lines of real container log from the test
 installation: zero hits for that rule, two on `AUSPEX-FUND`. The escalation
 is therefore a deliberate decision and not a side effect.
 
@@ -615,12 +637,13 @@ one collective line and still counts as handled.
 
 Reporting is separate from detecting: every finding carries a timestamp for
 when it went out. A crash between the two therefore does not make a finding
-disappear silently — the next pass catches up.
+disappear silently, and the next pass catches up.
 
 ## Measured
 
 On the test installation (4 cores), 2,296,816 rules loaded, the load tool on
-the same machine — so the resolver could do more on hardware of its own:
+the same machine, so the resolver would have more headroom on hardware of its
+own:
 
 | | Throughput | Median | 99th percentile |
 |---|---|---|---|
@@ -630,15 +653,16 @@ the same machine — so the resolver could do more on hardware of its own:
 | A single query, no competition | — | **0.13 ms** | 0.17 ms |
 
 The full filter path against 2.3 million rules is practically as fast as a
-cache hit — the rule lookup is a hash access plus a walk over the labels,
+cache hit. The rule lookup is a hash access plus a walk over the labels,
 independent of the size of the list.
 
 Under sustained load: 150–175 % CPU (of 400 % available), memory rises from
-375 to 570 MB — Go lets the heap grow under allocation pressure. Whoever
+375 to 570 MB, because Go lets the heap grow under allocation pressure.
+Whoever
 wants a hard ceiling sets `GOMEMLIMIT`.
 
 **On `strategy: "race"`:** it sounds like a free win, but it only is one if
-the upstreams are similarly fast. Measured on the test installation — Quad9
+the upstreams are similarly fast. Measured on the test installation: Quad9
 over DoH against Cloudflare over DoT:
 
 | | failover | race |
@@ -648,12 +672,12 @@ over DoH against Cloudflare over DoT:
 | 99th percentile | 56.3 ms | 71.6 ms |
 
 Quad9 wins 295 of 300 races. So the second contributes nothing but costs
-double the query load — and lets both providers see every single query
+double the query load, and it lets both providers see every single query
 instead of only one. For a tool whose whole reason is privacy that is a bad
 trade. `race` is only worth it when two upstreams genuinely win in turn.
 
 **Where it tips over:** at 41,000 queries/s the analysis loses data. The ring
-buffer holds 10,000 entries and the ingest fetches every 5 seconds — in the
+buffer holds 10,000 entries and the ingest fetches every 5 seconds. In the
 test 486,000 entries were missed and reported as exactly that. For home
 traffic (a few queries per second) that is meaningless; whoever really runs
 such loads needs a bigger ring buffer and a shorter interval.
@@ -665,7 +689,8 @@ cd auspex && go build -o auspexload ./cmd/auspexload
 
 ## Sign-in
 
-The dashboard can change filter lists and create exceptions — unprotected it
+The dashboard can change filter lists and create exceptions. Left unprotected,
+it
 does not belong on the network. So it demands a sign-in by default.
 
 Producing and entering a password hash:
@@ -674,18 +699,20 @@ Producing and entering a password hash:
 dotnet run --project control/Auspex.Control -- --hash-password "yourPassword"
 ```
 
-The hash belongs under `Auth:PasswordHash` — for the container install in a
+The hash goes under `Auth:PasswordHash`; for a container install, put it in
+a
 `.env` next to the `compose.yml`, because it differs per installation.
 Separated with a colon rather than a dollar as in the usual PHC format: the
 value ends up in .env files and YAML, and there the dollar sign is a variable
 Docker Compose silently expands away. Old hashes in the dollar format stay
 valid. (PBKDF2-SHA256, 210,000 rounds, a random salt per hash, compared in
-constant time.) The algorithm and the round count are in the hash itself —
+constant time.) The algorithm and the round count are stored in the hash
+itself,
 otherwise it could not be moved to stronger parameters in two years' time.
 
 If **no** password is configured, the application generates a random one at
 startup and writes it to the log. That fails towards "shut" without locking
-anybody out — a dashboard that stood open without configuration would be the
+anybody out. A dashboard left open without configuration would be the
 worse default.
 
 `Auth:Enabled: false` switches the sign-in off. Only sensible when something
@@ -706,19 +733,21 @@ with it, because there would be only one single "client". In the bridge test
 
 Port 53 without root works through `cap_net_bind_service` on the binary plus
 `cap_add: NET_BIND_SERVICE`. Both containers log with rotation (10 MB, 3
-files) — without it the log file eventually gets so large that every query
+files). Without it the log file eventually grows so large that every query
 against it runs into a timeout.
 
 The time zone comes from `TZ` in the compose file and can be overridden per
 installation in the dashboard under **Settings → Time zone**. It decides
 which clock time appears on an event and whether a finding counts as
-happening at night — which is why it sits with the settings and not with the
+happening at night, which is why it sits with the settings rather than with
+the
 colours.
 
 ## Managing lists
 
 Filter lists can be added, switched off and on again and removed in the
-dashboard — with a catalogue of proven lists, so nobody has to hunt for URLs.
+dashboard, with a catalogue of proven lists so that nobody has to hunt for
+URLs.
 The resolver loads a new list immediately and rebuilds the rule set; in the
 test: adding brings 17,316 rules, switching off takes them away, switching
 back on comes straight from the disk cache.
@@ -726,7 +755,8 @@ back on comes straight from the disk cache.
 Two limits are drawn deliberately:
 
 - **Lists from the configuration file stay untouched.** They belong to the
-  operator. On a name clash the configuration wins — otherwise a click in the
+  operator. On a name clash the configuration wins, because otherwise a click
+  in the
   browser could override a line in the file.
 - **http(s) addresses only.** A file path would let the control plane write
   into the resolver's file system; local lists belong in the configuration.
@@ -735,12 +765,13 @@ Two limits are drawn deliberately:
 
 Under "Devices" profiles can be created, changed and removed: addresses or
 networks, mode (open/learn/enforce) and blocked services by checkbox. Changes
-take effect immediately — the profiles sit behind a pointer and are swapped
+take effect immediately, since the profiles sit behind a pointer and are
+swapped
 out while running.
 
 Two limits as with the lists: profiles from the configuration file stay
 untouched and win on a name clash. **Upstreams and listen addresses stay in
-the file deliberately** — you can lock yourself out with those, and a browser
+the file deliberately.** You can lock yourself out with those, and a browser
 is the wrong place for a change after which the interface itself is no longer
 reachable.
 
@@ -749,10 +780,10 @@ the file; unknown field names are rejected rather than silently ignored.
 
 ## Impact analysis
 
-Computing a rule against the stored history before it goes live — under
+A rule can be computed against the stored history before it goes live, under
 "Impact" in the dashboard:
 
-> `||analytics.employer.example^` — **312 affected queries**, of which **312
+> `||analytics.employer.example^`: **312 affected queries**, of which **312
 > would be newly blocked**, spread over 1 device (work laptop).
 
 The decisive figure is not "how many match" but "how many are decided
@@ -761,7 +792,7 @@ nothing; an exception only has an effect where things are blocked at present.
 That difference is exactly what the analysis shows.
 
 The same formats are understood as in the filter lists. The control plane's
-parser mirrors the data plane's semantics — including the differences between
+parser mirrors the data plane's semantics, including the differences between
 a hosts entry, a bare domain and a wildcard. A rule that were read
 differently here than there would be worse than no analysis; so both parsers
 have the same test cases.
@@ -770,7 +801,7 @@ have the same test cases.
 
 Under "Backup" in the dashboard: a ZIP with history, findings, daily totals,
 own rules, managed lists and learned state. The learned state and the lists
-live in the resolver and are fetched through its API — which is why the
+live in the resolver and are fetched through its API, which is why the
 backup is not a mere copying of files.
 
 The database is written out consistently rather than copied raw: a file copy
@@ -778,7 +809,7 @@ would lose the part not yet checkpointed.
 
 **Restoring merges, it does not replace.** Whoever restores after a loss
 usually has a few hours of new data again; deleting that would be a second
-loss. Duplicates fall away by themselves through the unique indexes —
+loss. Duplicates are removed by the unique indexes,
 restoring twice changes nothing.
 
 If the backup comes from a different schema version it is rejected rather
@@ -813,7 +844,7 @@ time).
 `SIGHUP` reloads the rule set as well, without a restart.
 
 **Metrics.** `/metrics` delivers queries, blocks, cache, the DNSSEC rate,
-rules per list and the health of every upstream in Prometheus format —
+rules per list and the health of every upstream in Prometheus format,
 including `auspex_upstream_benched`, from which a failed target can be read
 before anybody notices the slower answers. If a token is set it applies here
 too; Prometheus and VictoriaMetrics can do `bearer_token` in the scrape
@@ -827,7 +858,7 @@ the dashboard against the running data plane.
 
 Persistence and detection have been played through live: ingest over the
 cursor, a restart of the data plane (cursor reset, 45 rows, zero duplicates),
-analysis over the stored history — and a simulated tunnel of 130 encoded
+analysis over the stored history, and a simulated tunnel of 130 encoded
 names that `tunneling-verdacht` and `nxdomain-flut` reported independently of
 each other.
 
@@ -835,7 +866,7 @@ The learning cycle has been played through as a whole: learning (blocked
 names demonstrably do *not* land in the store), a restart with the state
 loaded, export, switching to enforce, blocking for unlearned names.
 `raw.githubusercontent.com` drops out in the process although `github.com`
-was learned — a different registrable domain, exactly as it should be.
+was learned, since it is a different registrable domain.
 
 Test coverage sits on the logic where mistakes hurt: rule parsing and
 matching semantics, TTL computation, negative caching, LRU, time windows
@@ -853,7 +884,8 @@ cd control && dotnet test
 ```
 
 The .NET tests run against real SQLite in memory, not against an in-memory
-provider. The detectors are almost nothing but LINQ — a fake without real SQL
+provider. The detectors consist almost entirely of LINQ, and a fake without
+real SQL
 would check precisely not what matters. Two queries that could not be
 translated to SQL only came to light through that.
 
@@ -908,12 +940,14 @@ Open points and deliberate omissions are in
 - **PostgreSQL.** SQLite carries a home network effortlessly; two providers
   would have meant two migration paths.
 - **Upstreams and listen addresses in the browser.** You can lock yourself
-  out with those — the browser is the wrong place for a change after which
+  out with those, and the browser is the wrong place for a change after
+  which
   the interface itself is no longer reachable.
 - **gRPC.** The control API is HTTP/JSON. gRPC is only worth it once the
   control plane needs streaming instead of polling.
 - **Regex rules** from AdGuard lists are skipped.
-- **Detectors with fixed thresholds.** Set, not learned — and deliberately so
+- **Detectors with fixed thresholds.** They are set rather than learned, and
+  deliberately so
   that they stay quiet rather than nag. After a few weeks of real data they
   belong followed up.
 
@@ -923,14 +957,15 @@ Once the resolver is entered as the DNS server in the router, the whole
 household's internet hangs off it. Two stages against that:
 
 **Health checks.** Both containers report their state to Docker, and the
-check says something: it touches every component with a lock of its own —
-rule set, profiles, cache, query log — rather than only confirming "the
+check is meaningful: it touches every component that has a lock of its own,
+namely the rule set, the profiles, the cache and the query log, rather than
+only confirming that "the
 process is alive". Deliberately without an upstream: a real query would
 trigger a restart on a slow upstream although the resolver is fine, and
 against a hanging upstream a restart does not help anyway.
 
 **A second instance.** A Fritz!Box takes two local DNS servers. The earlier
-advice not to enter a second one applied to an *unfiltered* second entry —
+advice not to enter a second one applied to an unfiltered second entry,
 two Auspex instances are exactly right and survive a reboot of one of them.
 
 Three things you have to know about that:
@@ -947,7 +982,7 @@ Three things you have to know about that:
 ## Operational notes
 
 - **Do not bind to `0.0.0.0`.** `listen.udp`/`listen.tcp` take an address or
-  a list — bind deliberately rather than wholesale. If the host has a global
+  a list. Bind deliberately rather than wholesale: if the host has a global
   IPv6 address (the normal case on German connections, behind a Fritz!Box
   too), a wildcard bind turns the resolver into an open resolver, and that is
   a tool for DNS amplification attacks. So the default binds to loopback
@@ -955,7 +990,7 @@ Three things you have to know about that:
   configuration.
 - Port 53 on Linux needs either root or
   `setcap cap_net_bind_service=+ep`. On Windows port 5353 collides with mDNS
-  — use a high port for tests.
+  so use a high port for tests.
 - A listener that does not start terminates the process on purpose. A
   resolver that only answers TCP any more looks healthy in the log and does
   not work in practice.
@@ -971,19 +1006,20 @@ Three things you have to know about that:
       optional: true
   ```
 
-  Optional does not mean "give up quietly" — the address is retried in the
+  Optional does not mean "give up quietly". The address is retried in the
   background (2 s, doubling to a minute) until it appears, and the log says
   so. That distinction is the whole point: a crash heals itself through the
   restart policy, a silently missing listener does not, so an optional
   listener without a retry would be *worse* than the fatal one it replaces.
 
   At least one address has to stay required. A configuration in which every
-  listener may fail is refused at startup — it would let Auspex come up,
+  listener may fail is refused at startup, because it would let Auspex come
+  up,
   bind nothing, report itself healthy and answer no queries at all.
 - Do **not** enter a second DNS server in the router unless it is a second
   Auspex. Clients otherwise use both in turn and the filter applies at
   random.
-- DNS rebind protection in the router blocks rewrites to private addresses —
+- DNS rebind protection in the router blocks rewrites to private addresses,
   exempt your own domain there.
 
 ---
