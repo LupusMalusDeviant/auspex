@@ -81,12 +81,12 @@ validating resolver in front.
 ### Credentials
 
 The router account sits next to the database, encrypted with ASP.NET Data
-Protection. The keys live on the same volume — whoever can read that gets at
+Protection. The keys live on the same volume, so whoever can read that gets at
 the credentials. The interface's sign-in password is stored as PBKDF2-SHA256
 with 210,000 rounds and cannot be computed back.
 
 Give the router account only the rights you really need. Without write
-rights Auspex can read and report but change nothing — for most purposes
+rights, Auspex can read and report but change nothing, which for most purposes
 that is enough.
 
 ### The browser extension and the sensor
@@ -94,7 +94,7 @@ that is enough.
 Both sign in with the same bearer token, and the token has a narrow cut: it
 may set exceptions **for the device the request comes from**. Which device
 that is follows from the sender address, not from anything the extension
-says — so a stolen token cannot change somebody else's device, unless the
+says, so a stolen token cannot change somebody else's device unless the
 attacker is sitting on it anyway.
 
 Still: the token is a means of signing in. If one becomes known, issue a new
@@ -102,7 +102,7 @@ one in the settings; that invalidates the old one.
 
 The sensor is opt-in and reports process names and connection endpoints from
 the machine it runs on. It reads them through the Windows TCP tables; it
-opens nothing, changes nothing and needs no administrator rights — without
+opens nothing, changes nothing and needs no administrator rights. Without
 them the byte counters simply stay empty.
 
 ## What Auspex deliberately does not do
@@ -111,5 +111,5 @@ them the byte counters simply stay empty.
   household off the air.
 - **No amplification.** It answers queries from the configured networks only.
 - **No telemetry.** Auspex reports nothing outwards. What leaves the house
-  are the DNS queries to the configured upstreams — and the notifications to
+  are the DNS queries to the configured upstreams, and the notifications to
   a recipient you enter yourself.

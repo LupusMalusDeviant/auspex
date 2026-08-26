@@ -3,7 +3,7 @@
 ## Purpose
 
 The surface everything else is read through. Blazor Server, one circuit per
-tab — which shapes the design: whatever should keep working when the
+tab, which shapes the design: whatever should keep working when the
 connection to the server drops is deliberately not Blazor.
 
 ## Files
@@ -48,19 +48,19 @@ exports `version()`, `browser()`, `base()` and `copy(text)`.
 Three decisions that shape the whole surface:
 
 1. **The appearance is not Blazor.** It has to take effect before the first
-   paint, or the wrong theme flashes up while loading — so the part that sets
+   paint, or the wrong theme flashes up while loading, so the part that sets
    the values exists twice: inline in the `<head>` for the cold start, and in
    `appearance.js` for operating it. It also has to keep working when the
    circuit is gone.
 
    Blazor replaces the attributes on `<html>` on a page change and wipes
    `style` and `data-theme` with them. Rather than listening for a Blazor
-   event — which hangs off its internals — a `MutationObserver` watches the
+   event, and hooking into its internals would be fragile, so a `MutationObserver` watches the
    root and restores. That heals itself whoever touches the attributes.
 
 2. **The appearance lives server-side** in `darstellung.json`, not only in
    `localStorage`: localStorage is bound to the origin, and the extension has
-   a different one. The keys inside that file are German and stay that way —
+   a different one. The keys inside that file are German and stay that way,
    they are stored data, and renaming them would orphan every existing
    setting.
 
@@ -68,12 +68,12 @@ Three decisions that shape the whole surface:
    j/k move, f allows, b blocks, w asks why, p creates a profile. There is
    therefore only ever one route into an action, and the keyboard cannot do
    something different from the mouse. The buttons are found through
-   `data-action` and not through their caption — the caption changes with the
+   `data-action` rather than by their caption, because the caption changes with the
    language, and `f` would have grasped at nothing in English.
 
 ### Structure of the navigation
 
-Three tabs — watch, step in, tend the installation — rather than twelve
+Three tabs, for watching, stepping in and tending the installation, rather than twelve
 equal-looking entries, built from a radio group so the browser enforces
 "only ever one" itself and expanding still works without a circuit.
 

@@ -3,7 +3,7 @@
 *[Deutsch](vergleich.md) · **English***
 
 Building a third tool in a solved field owes an answer as to why. This
-document gives it — and states just as plainly where the other two are
+document gives it, and states just as plainly where the other two are
 better.
 
 > **On the numbers:** the section [What is *not* measured
@@ -19,7 +19,7 @@ better.
 
 Pi-hole and AdGuard Home know nothing about your router. On connecting,
 Auspex reads every service description the Fritz!Box offers and derives what
-it can do — on a 5690 Pro that is 39 services with 468 actions, 212 of them
+it can do. On a 5690 Pro that comes to 39 services with 468 actions, 212 of them
 mutating. What that makes operable: Wi-Fi, guest network, port forwardings,
 per-device internet access and the event log.
 
@@ -35,7 +35,7 @@ hand would be out of date the day it was finished.
 ### Device identity without being the DHCP server
 
 AdGuard Home maps a MAC only when it **is** the DHCP server. Anyone who does
-not want that identifies devices by IP — and the IP changes.
+not want, and it identifies devices by IP address, which changes.
 
 Auspex reads the kernel's neighbour table over netlink and goes
 address → MAC → name from the router's device list. That is why the mapping
@@ -58,7 +58,7 @@ states its thresholds and the numbers it rests on.
 ### Exceptions without the detour through admin
 
 A browser extension sees, via `webRequest`, which requests on the **page you
-have open** failed name resolution, and releases them on a click — 15
+have open** failed name resolution, and releases them on a click, for 15
 minutes, one hour, or permanently, for this one device. In the query log the
 same information sits between the requests of thirty other devices.
 
@@ -76,15 +76,15 @@ a wrong decision.
 AdGuard Home accepts DoH, DoT and DoQ from clients. That means the phone
 keeps filtering outside the house.
 
-Auspex has the DoT and DoH listeners built — what is missing is a
+Auspex has the DoT and DoH listeners built; what is missing is a
 certificate, so in practice DoH runs in the clear on loopback and DoT not at
 all. DoQ is genuinely absent. It is item 1 on the
 [pending list](open-points.md), and it stays the one point where switching to
 Auspex *takes something away*.
 
-Worth knowing before anyone buys a certificate for it: a WireGuard tunnel —
-Tailscale, or the one the Fritz!Box brings along — already provides what DoT
-would, and needs neither a certificate nor an open port.
+Worth knowing before anyone buys a certificate for it: a WireGuard tunnel,
+whether through Tailscale or the one the Fritz!Box brings along, already
+provides what DoT would, and needs neither a certificate nor an open port.
 
 ### Maturity
 
@@ -99,7 +99,7 @@ count is not maturity, and confusing the two is expensive.
 
 Pi-hole validates DNSSEC itself, through the dnsmasq it carries with it, and
 only when `dnssec=true` is switched on. **AdGuard Home does not.** It reads
-the upstream's AD bit and passes it on — the same thing Auspex does. An
+the upstream's AD bit and passes it on, which is the same thing Auspex does. An
 earlier version of this document claimed otherwise; that was wrong, and
 crediting a competitor with a property it does not have is a mistake in the
 same direction as claiming one for oneself.
@@ -115,7 +115,7 @@ pending list.](open-points.md)
 
 ### Ecosystem
 
-Blocklists, guides, forums, ready-made integrations — Pi-hole has these in a
+Blocklists, guides, forums and ready-made integrations: Pi-hole has these in a
 quantity a single-person project will not reach.
 
 ## Side by side
@@ -156,7 +156,7 @@ deliberate.**
 What circulates online about response times and throughput of these three
 projects was produced on different hardware, with different lists, different
 upstreams and different load profiles. Placing such numbers side by side
-would look like a comparison without being one — and selected in favour of
+would look like a comparison without being one, and selected in favour of
 one's own project, it would be dishonest.
 
 Only Auspex has been measured so far, on one installation, against itself:
@@ -183,5 +183,5 @@ These numbers say something about Auspex and **nothing** about the other two.
    percentile, memory under load, behaviour when an upstream fails.
 
 Until that has been run, no table of milliseconds appears here. Anyone who
-sees one — in any comparison, for any project — should ask about these six
+sees one, in any comparison and for any project, should ask about these six
 points first.

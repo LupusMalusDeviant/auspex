@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Turns text from four different rule formats into one decision — blocked,
-allowed, rewritten — and says which rule and which line of which list said so.
+Turns text from four different rule formats into one decision, being blocked,
+allowed or rewritten, and says which rule on which line of which list decided it.
 Without the origin travelling with the decision, the query log could only
 report "blocked", and the question "why?" would be unanswerable.
 
@@ -61,7 +61,7 @@ resolved silently.
 
 1. `loader.go` fetches every configured list, from disk cache if it is fresh.
 2. Every line goes through `Parse`. What cannot be expressed in DNS — element
-   filters, cosmetic filters, regex — is counted and skipped; the count is
+   filters, cosmetic filters and regex, is counted and skipped. The count is
    part of the statistics, so "why are there fewer rules than lines" has an
    answer.
 3. `engine.go` builds the lookup structure once and is then read-only.

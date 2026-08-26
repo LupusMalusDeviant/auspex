@@ -4,7 +4,7 @@
 
 Compute a rule against the stored history before it goes live, and write it
 with one click when it looks right. The decisive figure is not "how many
-match" but "how many are decided differently from today" — a block rule on
+match" but "how many are decided differently from today". A block rule on
 something already blocked changes nothing, and an exception only bites where
 things are blocked at present.
 
@@ -42,13 +42,13 @@ Task<WriteResult> RuleWriter.AddAsync(string rule, string reason, RuleTarget tar
 Task<bool> RuleWriter.EnsureExistsAsync(CancellationToken ct);
 ```
 
-`ImpactResult` carries affected, newly decided, and the devices involved —
+`ImpactResult` carries the affected count, the newly decided count and the devices involved,
 abbreviated for display but counted in full.
 
 ## Data flow
 
 1. The text goes through `RuleParser`, which **mirrors the data plane's
-   semantics** — including the differences between a hosts entry, a bare
+   semantics**, including the differences between a hosts entry, a bare
    domain and a wildcard. A rule read differently here than there would be
    worse than no analysis, so both parsers have the same test cases.
 2. `ImpactService` asks the history: which rows does the rule match, and what

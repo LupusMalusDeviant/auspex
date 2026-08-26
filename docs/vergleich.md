@@ -3,7 +3,7 @@
 ***Deutsch** · [English](comparison.md)*
 
 Wer ein drittes Werkzeug in einem gelösten Feld baut, schuldet eine Antwort
-darauf, warum. Dieses Dokument gibt sie — und sagt genauso deutlich, wo die
+darauf, warum. Dieses Dokument gibt sie und sagt genauso deutlich, wo die
 beiden anderen besser sind.
 
 > **Zum Stand der Zahlen:** Der Abschnitt [Was hier *nicht*
@@ -19,7 +19,7 @@ beiden anderen besser sind.
 
 Pi-hole und AdGuard Home wissen nichts von deinem Router. Auspex liest beim
 Verbinden jede Dienstbeschreibung der Fritz!Box und leitet daraus ab, was sie
-kann — bei einer 5690 Pro sind das 39 Dienste mit 468 Aktionen, davon 212
+kann. Bei einer 5690 Pro sind das 39 Dienste mit 468 Aktionen, davon 212
 verändernd. Bedienbar sind daraus WLAN, Gastnetz, Portfreigaben,
 Internetzugang je Gerät und das Ereignisprotokoll.
 
@@ -35,7 +35,7 @@ wäre in dem Moment veraltet, in dem es fertig ist.
 ### Geräteidentität ohne DHCP-Server zu sein
 
 AdGuard Home ordnet eine MAC nur dann zu, wenn es **selbst** DHCP-Server ist.
-Wer das nicht will, identifiziert Geräte an der IP — und die wechselt.
+Wer das nicht will, identifiziert Geräte an der IP-Adresse, und die wechselt.
 
 Auspex liest die Nachbartabelle des Kernels über Netlink und geht
 Adresse → MAC → Name aus der Router-Geräteliste. Deshalb überlebt die
@@ -60,7 +60,7 @@ auf denen er beruht.
 
 Eine Browser-Erweiterung sieht über `webRequest`, welche Anfragen auf der
 **gerade geöffneten Seite** an der Namensauflösung gescheitert sind, und gibt
-sie auf Klick frei — 15 Minuten, eine Stunde oder dauerhaft, für genau dieses
+sie auf Klick frei: für 15 Minuten, eine Stunde oder dauerhaft, und für genau dieses
 Gerät. Im Query-Log stünde dasselbe zwischen den Anfragen von dreißig anderen
 Geräten.
 
@@ -78,14 +78,15 @@ trifft eine falsche Entscheidung.
 AdGuard Home nimmt DoH, DoT und DoQ von Clients an. Damit filtert das Handy
 auch außerhalb des Hauses.
 
-Auspex hat die DoT- und DoH-Listener gebaut — was fehlt, ist ein Zertifikat.
+Auspex hat die DoT- und DoH-Listener gebaut; was fehlt, ist ein Zertifikat.
 In der Praxis läuft DoH deshalb im Klartext auf Loopback und DoT gar nicht.
 DoQ fehlt tatsächlich ganz. Das ist Punkt 1 der
 [offenen Liste](open-points.md) und bleibt der einzige Punkt, bei dem ein
 Umstieg auf Auspex etwas *wegnimmt*.
 
-Bevor jemand dafür ein Zertifikat kauft: ein WireGuard-Tunnel — Tailscale
-oder der, den die Fritz!Box mitbringt — leistet bereits das, wofür DoT da
+Bevor jemand dafür ein Zertifikat kauft: ein WireGuard-Tunnel, ob über
+Tailscale oder über den, den die Fritz!Box mitbringt, leistet bereits das,
+wofür DoT da
 wäre, und braucht weder Zertifikat noch offenen Port.
 
 ### Reife
@@ -102,14 +103,14 @@ Funktionsumfang ist nicht Reife, und die Verwechslung ist teuer.
 
 Pi-hole validiert DNSSEC selbst, über das mitgebrachte dnsmasq, und nur
 wenn `dnssec=true` eingeschaltet ist. **AdGuard Home tut es nicht.** Es liest
-das AD-Bit des Upstreams und reicht es weiter — dasselbe, was Auspex macht.
+das AD-Bit des Upstreams und reicht es weiter, also dasselbe, was Auspex macht.
 Eine frühere Fassung dieses Dokuments hat das anders behauptet; das war
 falsch. Einem Mitbewerber eine Eigenschaft anzudichten, die er nicht hat, ist
 derselbe Fehler wie sie sich selbst anzudichten.
 
 Auspex verlangt Validierung beim Upstream und zeigt den Status an. Eigene
 Validierungslogik ist sicherheitskritischer Code, den man nicht nebenbei
-richtig hinbekommt — und ihn schreiben zu können ist nicht dasselbe, wie ihm
+richtig hinbekommt. Ihn schreiben zu können ist außerdem nicht dasselbe, wie ihm
 trauen zu dürfen.
 
 Beide bringen einen DHCP-Server mit. Auspex nicht: ein zweiter DHCP im selben
@@ -119,7 +120,7 @@ nicht aus der Ferne beheben, weil man selbst keine Adresse mehr bekommt.
 
 ### Ökosystem
 
-Sperrlisten, Anleitungen, Foren, fertige Integrationen — das gibt es für
+Sperrlisten, Anleitungen, Foren und fertige Integrationen gibt es für
 Pi-hole in einer Menge, die ein Einzelprojekt nicht erreicht.
 
 ## Gegenüberstellung
@@ -159,7 +160,7 @@ Verifizierbar aus den Handbüchern der Projekte, Stand August 2026.
 Was über Antwortzeiten und Durchsatz der drei Projekte im Netz steht, ist auf
 verschiedener Hardware, mit verschiedenen Listen, verschiedenen Upstreams und
 verschiedenen Lastprofilen entstanden. Solche Zahlen nebeneinanderzustellen
-sähe aus wie ein Vergleich, wäre aber keiner — und ausgerechnet zugunsten des
+sähe aus wie ein Vergleich, wäre aber keiner, und ausgerechnet zugunsten des
 eigenen Projekts ausgewählt wäre es unredlich.
 
 Gemessen ist bisher nur Auspex, auf einer Anlage, gegen sich selbst:
@@ -187,5 +188,5 @@ Diese Zahlen sagen etwas über Auspex und **nichts** über die anderen beiden.
    Speicher unter Last, Verhalten bei ausgefallenem Upstream.
 
 Bis das gelaufen ist, steht hier keine Tabelle mit Millisekunden. Wer eine
-sieht — in irgendeinem Vergleich, für irgendein Projekt — sollte zuerst nach
+sieht, in irgendeinem Vergleich und für irgendein Projekt, sollte zuerst nach
 diesen sechs Punkten fragen.

@@ -65,7 +65,7 @@ Task<Dossier> DossierService.ForDeviceAsync(string device, TimeSpan window, Canc
 ### Two honesty rules in the numbers
 
 - **The city is marked uncertain** wherever the value names a node rather than
-  a headquarters — usually the nearest one. A map would turn that into a
+  a headquarters, usually the nearest one. A map would turn that into a
   company address. Data-centre operators are exempt: an address at Hetzner
   really is in Falkenstein, and sowing doubt where the value is right
   devalues the marker where it is needed.
@@ -76,13 +76,13 @@ Task<Dossier> DossierService.ForDeviceAsync(string device, TimeSpan window, Canc
 
 IPv4 is embedded as `::ffff:a.b.c.d` and therefore lies numerically *inside*
 low IPv6 ranges. A range starting at `::` and reaching far enough encloses
-every IPv4 address — and would ascribe an operator to it that has nothing to
+every IPv4 address, and would ascribe to it an operator that has nothing to
 do with it. The lookup separates the families for exactly that reason, and
 there is a test for it.
 
 ## Open questions
 
 - `NetworkRanges.State()` has to answer before the first import, when its
-  table does not exist. `EXISTS` in the same statement does not help — SQLite
-  resolves names at prepare time — so it asks `sqlite_master` separately. Easy
+  table does not exist, and `EXISTS` in the same statement does not help, because SQLite
+  resolves names at prepare time. It therefore asks `sqlite_master` separately. Easy
   to undo by accident while tidying.

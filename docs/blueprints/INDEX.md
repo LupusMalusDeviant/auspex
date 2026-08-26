@@ -9,7 +9,7 @@
 Auspex is a filtering DNS resolver for a home network, in three parts that
 ship together under one version number. The **resolver** (Go, `auspex/`)
 answers DNS and does nothing slow while it does. The **control plane**
-(.NET 10 / Blazor, `control/`) does everything that may wait — interface,
+(.NET 10 / Blazor, `control/`) does everything that is allowed to take time: the interface,
 history, detection, the router, the extension and sensor APIs. The **sensor**
 (C#, `sensor/`) is optional and runs on a Windows machine to report which
 program holds which connection. A **browser extension** (`extension/`) turns
@@ -111,7 +111,7 @@ it again ("update the blueprint"); it recognises this `INDEX.md` and offers an
 incremental re-run. Manual additions in a feature file survive an incremental
 run as long as the skill does not classify the file as stale.
 
-They are written in English, unlike the skill's default — since 0.9.0 the
+They are written in English rather than the skill's default, because since 0.9.0 the
 whole codebase and all its documentation are.
 
 ## Related documentation

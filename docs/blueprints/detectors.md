@@ -5,7 +5,7 @@
 The half that makes Auspex more than a filter: it watches the stored history
 for patterns and speaks up on its own, instead of drawing a chart and waiting
 for somebody to look at it. Nine heuristics, each of which lays its thresholds
-open and ships the numbers with the finding — a finding you cannot recompute
+open and ships the numbers with the finding, because a finding you cannot recompute
 gets ignored after the third one.
 
 ## Files
@@ -69,12 +69,12 @@ interface looks the text up by. Renaming them would be a data migration.
    `dauersender` uses the day, not the hour: a state that reports itself hourly
    becomes wallpaper.
 4. **A finding stores only its measurements, not a sentence.** Detection runs
-   in the background with nobody having opened a page — there is no reader at
+   in the background with nobody having opened a page. There is no reader at
    that moment and therefore no language. The sentence comes into being at
    display time from `FindingValues`.
 5. `FindingNotifier` writes one line per new finding, capped per pass. What
    runs over the cap is reported as one collective line and still counts as
-   handled — otherwise the flood repeats on the next pass.
+   handled, because otherwise the flood repeats on the next pass.
 6. Reporting is separate from detecting: a finding carries the timestamp for
    when it went out. A crash between the two does not lose it.
 
@@ -85,11 +85,11 @@ five. It now falls silent for a pair already reported on several days.
 
 `dauersender` was added for the case `wiederholungssturm` cannot see. That one
 compares against a device's own history and sees only spikes; a device running
-against a block equally loudly for days has no spike — factor one. Measured:
+against a block equally loudly for days produces no spike, so its factor is one. Measured:
 486 queries for one blocked name in 46 minutes, not a single finding.
 
 ## Open questions
 
 - How often `neue-domain` reports (probably too often) and whether
   `gleichlauf` stays usable during update waves. Both need weeks of real data
-  — point 6 in [`open-points.md`](../open-points.md).
+  See point 6 in [`open-points.md`](../open-points.md).

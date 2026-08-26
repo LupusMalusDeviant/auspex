@@ -69,14 +69,14 @@ static IReadOnlyList<ZoneChoice> DisplayTime.Selectable { get; }
 
 ### Display time, and the trap under it
 
-SQLite returns `DateTime` with `Kind.Unspecified` — a time without an origin.
+SQLite returns `DateTime` with `Kind.Unspecified`, which is a time without an origin.
 Both routes from there to a display go silently wrong: `ToLocalTime()` does
 nothing at all on `Unspecified`, and the implicit conversion to
 `DateTimeOffset` staples the local offset onto the UTC value. 17:53 UTC
 becomes "17:53+02:00", a moment that never existed.
 
 So `Format` has explicit `DateTime` overloads and `Strings.AsUtc()` takes the
-field name at its word. The overload has to beat the implicit conversion —
+field name at its word, so the overload has to beat the implicit conversion:
 there is a test for that, and it is honest about being blind on a machine
 running in UTC, which is why a second test takes the zone into its own hands.
 

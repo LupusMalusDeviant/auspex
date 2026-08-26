@@ -71,7 +71,7 @@ instance, points via CNAME at a chain:
       → analytics.tiktok.com.bytewlb.akadns.net
       → e35058.api15.akamaiedge.net
 
-If any link is on a list, the cloaking check bites — which is precisely the
+If any link in the chain is on a list, the cloaking check takes effect, which is precisely the
 function it was built for. So after every exception Auspex names the next
 blocked link, and the extension offers a button for it. Two to four clicks
 and the chain is open.

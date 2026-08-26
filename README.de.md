@@ -49,7 +49,7 @@ sein Befund beruht. So lässt sich nachvollziehen, warum er angeschlagen hat.
 ### Ausnahmen direkt im Browser
 
 Eine Browser-Erweiterung zeigt, welche Anfragen der geöffneten Seite an der
-Namensauflösung gescheitert sind. Auf Klick gibt sie eine davon frei —
+Namensauflösung gescheitert sind. Auf Klick gibt sie eine davon frei,
 befristet und nur für dieses eine Gerät.
 
 Welches Gerät gemeint ist, entnimmt Auspex der Absenderadresse der Anfrage.
@@ -130,7 +130,7 @@ go build -o auspexdig.exe ./cmd/auspexdig
 
 ## Lizenz
 
-[Apache License 2.0](LICENSE). Auspex liefert **keine** Sperrlisten mit — es
+[Apache License 2.0](LICENSE). Auspex liefert keine eigenen Sperrlisten mit. Es
 liest die, die du einträgst; für deren Inhalt gelten die Bedingungen ihrer
 Herausgeber. „Fritz!Box" und „AVM" sind Marken der AVM GmbH; dieses Projekt
 gehört nicht zu AVM und wird von dort nicht unterstützt. Es spricht mit dem

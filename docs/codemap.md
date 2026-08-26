@@ -12,7 +12,7 @@ between them is deliberate.
 The **resolver** (Go) answers DNS queries. Everything slow is kept out of it:
 it holds no database, renders no pages and never waits for another component.
 
-The **control plane** (.NET) does everything that is allowed to take time —
+The **control plane** (.NET) does everything that is allowed to take time:
 the web interface, the analysis, the router connection and the APIs for the
 extension and the sensor. It pulls its data from the resolver rather than
 being pushed to, so the resolver keeps working even when the control plane is
@@ -43,7 +43,7 @@ given connection.
 
 ## Naming, and where it stops
 
-Since 0.9.0 every **name in the code** is English — types, members, locals,
+Since 0.9.0 every name in the code is English: types, members, locals,
 functions, files, CSS classes and API routes of our own.
 
 Page routes are English as well. They had been half renamed already:
@@ -155,7 +155,7 @@ know that goes looking for a permissions problem.
 
 Interfaces sit where something is *reached across*: the resolver, the
 router, the rule files, the network-range database, the three stores. Not
-one interface per class — an interface that has exactly one implementation
+one interface per class, because an interface with exactly one implementation
 and one caller documents nothing and only adds a file to open. The comment
 in `Seams.cs` says which is which and why.
 

@@ -5,7 +5,7 @@
 The browser knows what broke on *this* page. The dashboard sees the same
 failure somewhere between the queries of thirty other devices. The extension
 turns "something is broken" into a button: it lists the requests that failed
-name resolution on the open tab and releases them on a click — time-limited,
+name resolution on the open tab and releases them on a click, for a limited time,
 for this one device.
 
 ## Files
@@ -41,7 +41,7 @@ for this one device.
 ### External
 
 The browser APIs: `webRequest`, `webNavigation`, `scripting`, `storage`,
-`tabs`, `action`. Nothing else — no framework, no build step beyond `cp`.
+`tabs`, `action`. Nothing else: no framework, and no build step beyond `cp`.
 
 ## Public interface
 
@@ -82,7 +82,7 @@ sequenceDiagram
    address binding would be worthless from tomorrow, and silently so: nothing
    would break, the exception would merely stop applying.
 3. **A redirect usually needs more than one click.** If a link in the CNAME
-   chain is on a list, the cloaking check bites — which is what it was built
+   chain is on a list, the cloaking check takes effect, which is what it was built
    for. So the answer names the next blocked link and the popup offers a
    button. Deliberate: whoever opens a cloaking chain should see how long it
    is.
@@ -92,7 +92,7 @@ sequenceDiagram
    anybody out of the dashboard.
 5. `badge.js` runs **only on the configured address**, registered at run time
    rather than declared in the manifest. A content script on every page would
-   make the extension detectable by any website — the wrong direction for a
+   make the extension detectable by any website, which is the wrong direction for a
    tool meant to prevent tracking.
 
 ## Open questions

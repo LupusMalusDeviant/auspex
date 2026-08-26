@@ -53,7 +53,7 @@ Optional and opt-in. Nothing depends on it being installed.
 and the answer `{"accepted": n, "device": "…"}`.
 
 CLI: `auspex-sensor.exe --show` lists the open connections grouped by program
-and exits — so you can see whether it finds anything before the first report
+and exits, so you can see whether it finds anything before the first report
 goes out. `setup.ps1 -Remove` takes the task and the files away again.
 
 ## Data flow
@@ -64,7 +64,7 @@ goes out. `setup.ps1 -Remove` takes the task and the files away again.
    protocol, and carries counts and first/last forward across polls.
 3. Every 30 seconds a batch goes out. The same key can occur several times in
    one batch and returns in every following batch, so both sides fold: the
-   sensor before sending, the API before writing — two rows with the same key
+   sensor before sending and the API before writing. Two rows with the same key
    would violate the unique index.
 4. The API asks the resolver who the sender address is and stores the device
    name with the rows. **The sensor never says which device it is.**
@@ -88,7 +88,7 @@ goes out. `setup.ps1 -Remove` takes the task and the files away again.
   read-write structure at all. `Data` is 1. Measured across every buffer size
   and version before changing anything, so size was never the cause.
 - **Windows locks the executable of a running process.** `setup.ps1` copied
-  over it before stopping the sensor, the copy failed, the script aborted —
+  over it before stopping the sensor, the copy failed and the script aborted,
   and because an elevated window closes on abort, a failed update looked
   exactly like a successful one. It now stops first, waits for the lock to
   clear, and holds the window open on failure.
@@ -96,7 +96,7 @@ goes out. `setup.ps1 -Remove` takes the task and the files away again.
 ### Who runs the task
 
 Three things are wanted at once: highest privileges, no visible window, no
-stored password. `S4U` can do all three — but only with Kerberos, so only in a
+stored password. `S4U` can do all three, but only with Kerberos and therefore only in a
 domain. On a standalone machine the task registers and then fails at start
 with `0x80070002`, which Windows reports as "file not found" although the file
 is there. Outside a domain `SYSTEM` takes over instead; the connection table
@@ -105,5 +105,5 @@ applies to the whole machine anyway, not per session.
 ## Open questions
 
 - The byte count is per connection and TCP-only, so it answers "what is this
-  program sending", not "who is filling the line" — that is point 10 in
+  program sending" rather than "who is filling the line". That is point 10 in
   [`open-points.md`](../open-points.md).

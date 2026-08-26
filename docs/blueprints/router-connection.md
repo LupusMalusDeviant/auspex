@@ -51,7 +51,7 @@ Task<IReadOnlyList<RouterChange>> RouterWatchService.CompareAsync(CancellationTo
 
 `RouterList<T>` is not a list: it carries the reason as well. That exists
 because the calls used to return an empty list on a rejected sign-in,
-indistinguishable from "there is nothing" — and the port mappings page then
+indistinguishable from "there is nothing", and the port mappings page then
 reported "no door leads in from outside". A false statement about the security
 of the network.
 
@@ -78,20 +78,20 @@ sequenceDiagram
    along by itself, and the input fields in the catalogue come from the
    allowed values and limits in the description.
 2. **Read actions fall back to the open route.** A Fritz!Box hands out the
-   device list without a sign-in — so a wrongly stored account still shows the
+   device list without a sign-in, so a wrongly stored account still shows the
    list rather than an empty page.
 3. **Two channels, because one does not suffice.** The local DNS server the
    box distributes over DHCP is not in TR-064. For that `FritzWebClient` signs
-   in like a browser and posts the complete form back — and posts it to the
+   in like a browser and posts the complete form back, to the
    address the page itself names, not a hard-wired one. The first version
    posted to `data.lua`, where the box accepts the call and silently discards
    it; it only came to light because the value is read back afterwards.
 4. **An unticked checkbox is not sent by a form.** Sending it anyway would
-   switch on things that were off — a LAN bridge that rebuilds the network,
+   switch on things that were off, such as a LAN bridge that rebuilds the network,
    say. This is the most dangerous single case in the whole project and has a
    test of its own.
 5. **Changes that can cut off access** — Wi-Fi off, DHCP off, changing the LAN
-   IP — demand an extra confirmation, and `ROUTER_READONLY=true` blocks
+   IP, demand an extra confirmation, and `ROUTER_READONLY=true` blocks
    everything changing.
 
 ## Open questions
@@ -100,4 +100,4 @@ sequenceDiagram
   should cope with others; reports from other devices, failed ones included,
   are the most valuable contribution.
 - Traffic per device is kept by the box but the clean route to it has not been
-  checked — point 10 in [`open-points.md`](../open-points.md).
+  checked. See point 10 in [`open-points.md`](../open-points.md).

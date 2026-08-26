@@ -88,7 +88,7 @@ No `feat:`/`fix:` prefix. One commit, one thing.
 ## What is especially welcome
 
 - **Other routers.** The connection discovers its capabilities over TR-064
-  itself rather than having them hard-wired — so it should be able to cope
+  itself rather than having them hard-wired, so it should be able to cope
   with other models. It has only been checked against a Fritz!Box 5690 Pro.
   Reports from other devices, failed ones included, are valuable.
 - **Wrong findings.** If a detector reports nonsense on your network, that is
@@ -100,7 +100,7 @@ No `feat:`/`fix:` prefix. One commit, one thing.
 
 ## What it will fail on
 
-Security-critical things carried along on the side — our own DNSSEC
+Security-critical things added on the side, such as our own DNSSEC
 validation, our own cryptography. Along with dependencies that do not pay
 for themselves: SQLite carries a home network, and a second database system
 would be a building site with nothing on the other side of it.

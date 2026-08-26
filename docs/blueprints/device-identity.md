@@ -4,7 +4,7 @@
 
 Turns a source address into a device that stays the same device. A query log
 full of `192.168.1.43` is a lookup exercise; one that says "living room TV" is
-readable. More importantly, an address is not an identity — DHCP hands it out
+readable. More importantly, an address is not an identity, because DHCP hands it out
 again, and Windows and Android rotate their IPv6 privacy addresses daily. The
 MAC is what stays.
 
@@ -44,7 +44,7 @@ func (s *Store) Match(ip netip.Addr, mac net.HardwareAddr) (*Client, bool)
 
 1. `Name()` **always answers immediately from memory** and at most kicks a
    lookup off in the background. Name resolution must never sit in the query
-   path — a slow router would otherwise slow down DNS.
+   path, because a slow router would otherwise slow down DNS.
 2. Three sources, in order: the static mapping in the configuration, the
    device list from the router, and a reverse lookup (a Fritz!Box answers PTR
    for its DHCP clients and thereby delivers exactly the names from the home
@@ -52,18 +52,18 @@ func (s *Store) Match(ip netip.Addr, mac net.HardwareAddr) (*Client, bool)
 3. The neighbour table maps address → MAC, which is what makes a profile
    survive a DHCP renewal and a rotating IPv6 address.
 4. If anonymisation is on in the query log, the name drops away with the
-   address — it identifies the device just as uniquely.
+   address, since it identifies the device just as uniquely.
 
 ### Why netlink by hand
 
 `netlink_linux.go` parses the attributes itself instead of using
 `syscall.ParseNetlinkRouteAttr`. Not for its own sake: that function does not
 know `RTM_NEWNEIGH` and silently returns nothing. Whoever does not know that
-goes looking for a permissions problem — which is exactly what happened once.
+goes looking for a permissions problem, which is exactly what happened once.
 
 ## Open questions
 
 - 11 of the 48 MACs on the test network are randomised. That is stable while
   the device knows the network, but a "forget network" produces a new one. A
   device register would have to be able to merge "known device, new MAC" in
-  one click — point 2 in [`open-points.md`](../open-points.md).
+  one click. See point 2 in [`open-points.md`](../open-points.md).

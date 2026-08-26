@@ -448,7 +448,7 @@ clears them away.
 
 And three pages were English even in German: `NotFound`, `Error` and the
 reconnect dialog were still in Blazor's shipped state. Noticed while
-translating — whoever builds bilingually reads every line once on purpose.
+translating, because whoever builds bilingually reads every line once on purpose.
 
 ## ~~14. English names in the code~~ — done in 0.9.0
 
@@ -457,7 +457,7 @@ are English. What stays German, and why, is in
 [`codemap.md`](codemap.md#naming-and-where-it-stops).
 
 The rename turned up five places where two sides of the same contract had
-already drifted apart — each of them a feature that was quietly broken:
+already drifted apart, each of them a feature that was quietly broken:
 
 * `/sprache/{kuerzel}` bound its parameter by name while the parameter was
   already called `code`, and the navigation had long linked
@@ -484,13 +484,13 @@ here because "what is open" would otherwise have two answers.
   Port 53 was free, `systemd-resolved` inactive. Two things were learned in
   the process that nobody had on their list: `fritz.box` is a genuine public
   domain and pointed at a foreign server after the switch (fixed through the
-  new `local` section), and **IPv6 has to be switched over too** — the
+  new `local` section), and IPv6 has to be switched over as well, because the
   Fritz!Box announces itself as the DNSv6 server through router
   advertisements, Windows prefers that one, and the queries run silently past
   the filter. Recognisable with `nslookup`: if there is an IPv6 address under
   "Server", the IPv4 setting is not taking effect.
 - **The earlier point about port 53.** Taking over port 53 is the step after
-  which the thing really gets used — and the one that produces every further
+  which the thing really gets used, and the one that produces every further
   insight. It includes the entry in the Fritz!Box under *Home network →
   Network → Network settings*.
 - ~~No permanent password~~ — done on 23 August 2026, the hash is in
@@ -509,7 +509,7 @@ here because "what is open" would otherwise have two answers.
 ## The resolver's configuration is not backed up
 
 The backup covers data: history, findings, daily totals, own rules, managed
-lists, learned state. **Not** the resolver's `config.yaml` — that is a file
+lists and learned state. It does not include the resolver's `config.yaml`, which is a file
 the operator owns and that is only mounted into the resolver container; the
 control plane does not see it.
 
@@ -521,7 +521,7 @@ credentials into a downloadable archive is a bad idea.
 ## Deliberately not planned
 
 - **A DHCP server.** ~~A second DHCP on the same network can take a whole
-  household off the air.~~ The objection is answered, see point 12 — but a
+  household off the air.~~ The objection is answered; see point 12. A
   second one still stands.
 - **Our own DNSSEC validation.** Security-critical code you do not get right
   on the side. Instead: enforced validation at the upstream and a visible
@@ -530,7 +530,7 @@ credentials into a downloadable archive is a bad idea.
   out with those.
 - **Filtering ads inside YouTube videos.** Fundamentally impossible over DNS:
   YouTube serves ads from the same hosts as the video (`*.googlevideo.com`),
-  increasingly in the same stream. There is no name that is only ads —
+  increasingly in the same stream, and there is no name that carries only ads.
   whoever blocks it blocks YouTube. The same holds for Pi-hole and AdGuard
   Home. Filtering in the page content could do it, but that would mean
   rebuilding uBlock Origin.
@@ -540,6 +540,6 @@ credentials into a downloadable archive is a bad idea.
   against caching anyway (per-session signed URLs, DASH segments per
   quality). The goal "watch it later without traffic" is reached with yt-dlp
   and a media server (Tube Archivist, Pinchflat) as a service of its own. For
-  operating-system and game updates `lancache` would make sense — likewise a
+  operating-system and game updates, `lancache` would make sense, as would a
   service of its own, not Auspex.
 - **PostgreSQL.** SQLite carries a home network effortlessly.

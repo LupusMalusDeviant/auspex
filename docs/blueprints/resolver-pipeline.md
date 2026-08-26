@@ -4,7 +4,7 @@
 
 Answers every DNS query the network asks, and decides in the process whether
 it may be answered at all. This is the only part of Auspex that sits in the
-hot path — everything else in the project observes it. Without it there is no
+hot path; everything else in the project observes it. Without it there is no
 product; if it is slow, the whole house is slow.
 
 ## Files
@@ -52,7 +52,7 @@ func (r *Resolver) Reload(force bool) error
 func (r *Resolver) SelfCheck(ctx context.Context) error
 ```
 
-`Explanation` carries name, blocked, rule, rule kind, list, line and reason —
+`Explanation` carries name, blocked, rule, rule kind, list, line and reason:
 the same fields the query log and `/api/v1/explain` show.
 
 ## Data flow
@@ -88,7 +88,7 @@ sequenceDiagram
 ```
 
 1. **Special cases first.** `use-application-dns.net` is answered NXDOMAIN
-   unconditionally, regardless of the configured block mode — a blocked
+   unconditionally, regardless of the configured block mode, because a blocked
    `0.0.0.0` is read by Firefox as "no filter" and it keeps bypassing.
 2. **Local zones before the filter and before the cache.** An internal name
    must never end up at a public server, and a cache hit must not be able to
@@ -98,7 +98,7 @@ sequenceDiagram
    be stored once and then used freely.
 5. **SafeSearch after the filter and before the cache.** After, because
    whoever blocked YouTube outright meant blocked and not "moderately
-   filtered". Before, because the answer depends on who is asking — the
+   filtered". Before the cache, because the answer depends on who is asking: the
    children's tablet and the workshop computer must not be served each
    other's. The target's own resolution *is* cached, under its own key, so
    several devices redirected to the same provider share one query upstream.
@@ -106,5 +106,5 @@ sequenceDiagram
 ## Open questions
 
 - Under sustained load (41,000 queries/s in the test) the query-log ring
-  buffer overflows. It is reported, not concealed — see point 4 in
+  buffer overflows. The loss is reported rather than hidden; see point 4 in
   [`open-points.md`](../open-points.md).

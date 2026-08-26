@@ -4,7 +4,7 @@
 
 Deny-by-default for devices you do not trust, without having to know in
 advance what they need. A profile runs `open`, then `learn` while the device
-shows what it talks to, then `enforce` — after which exactly that and nothing
+shows what it talks to, then `enforce`, after which exactly that and nothing
 else resolves. It is the one capability in Auspex that neither Pi-hole nor
 AdGuard Home has.
 
@@ -58,14 +58,14 @@ CLI: `auspex -config config.yaml -learn-export <profile>`
    `exact`. `cdn-3f8a.vendor.example` is `cdn-91cc.vendor.example` tomorrow;
    without generalising, the allowlist would be broken on day two.
 5. `max_entries` caps the store. A device generating random names — broken, or
-   tunnelling — must not flood it. On reaching the cap the store sets
+   tunnelling, must not be able to flood it. On reaching the cap the store sets
    `overflow` rather than being silently incomplete.
 6. In `enforce` the check runs against the store; anything not in it gets
    NXDOMAIN.
 
 The dashboard shows per profile how long it has been since a new domain
 appeared. That is the most usable signal that a learning window ran long
-enough — better than a duration, because the answer depends on the device.
+enough. That works better than a fixed duration, because the answer depends on the device.
 
 ## Open questions
 

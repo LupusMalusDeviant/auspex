@@ -49,7 +49,7 @@ on, so you can check why it fired.
 ### Exceptions from inside the browser
 
 A browser extension shows which requests on the current page failed at name
-resolution. One click allows one of them through — for a limited time, and
+resolution. One click allows one of them through, for a limited time and
 only for that device.
 
 Which device is meant comes from the sender address of the request. The
@@ -130,7 +130,7 @@ go build -o auspexdig.exe ./cmd/auspexdig
 
 ## License
 
-[Apache License 2.0](LICENSE). Auspex ships **no** blocklists — it reads the
+[Apache License 2.0](LICENSE). Auspex ships no blocklists of its own. It reads the
 ones you configure, and their contents remain under the terms set by whoever
 publishes them. "Fritz!Box" and "AVM" are trademarks of AVM GmbH; this
 project is not affiliated with, endorsed by, or supported by AVM. It talks to

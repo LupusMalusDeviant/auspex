@@ -66,7 +66,7 @@ IReadOnlyList<QueryGroup> Group(IEnumerable<QueryRow> rows);
 Grouping too little leaves the log unreadable. Grouping too much makes a
 difference disappear that nobody will ever see again. So `QueryGrouping` folds
 only rows that agree on **all** of: device, name, second, action and rule. Two
-record types that came out differently stay two rows — that difference is
+record types that came out differently stay two rows, because that difference is
 precisely the interesting one.
 
 The same device under IPv4 and IPv6 is **one** row. A modern client asks over
@@ -76,4 +76,4 @@ a single call.
 ## Open questions
 
 - Dashboard speed has not been measured: with a few thousand rows every number
-  would be meaningless — point 7 in [`open-points.md`](../open-points.md).
+  would be meaningless. See point 7 in [`open-points.md`](../open-points.md).

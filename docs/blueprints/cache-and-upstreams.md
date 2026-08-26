@@ -51,14 +51,14 @@ wrong:
    would make every downstream cache hold it too long.
 2. **Negative caching goes through the SOA minimum** (RFC 2308), not through a
    number of our own. Which is why `response.go` puts an SOA in the authority
-   section of a block — without it clients do not cache negatively and ask
+   section of a block. Without it, clients do not cache negatively and ask
    again immediately.
 3. **SERVFAIL is not cached.** A transient upstream fault must not become a
    lasting one.
 4. **The DO bit is part of the key.** Otherwise an answer without signatures
    could be served to a client that asked for them.
 5. **`serve_stale` only when all upstreams are dead.** An expired answer is
-   better than none — but only then.
+   better than none, but only then.
 
 The pool:
 
@@ -88,7 +88,7 @@ sequenceDiagram
 `race` was measured and rejected for this installation: Quad9 wins 295 of 300
 races, so the second contributes nothing, doubles the query load and lets both
 providers see every query. For a tool whose reason is privacy that is a bad
-trade — the numbers are in [`product.md`](../product.md#measured).
+trade; the numbers are in [`product.md`](../product.md#measured).
 
 The bootstrap resolver is not a detail: DoH and DoT targets are hostnames, and
 resolving them through the system resolver would, after setup, mean asking

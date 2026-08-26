@@ -85,5 +85,5 @@ sequenceDiagram
 ## Open questions
 
 - Push instead of polling would remove the overflow case entirely and shorten
-  the delay until detection — point 4 in
+  the delay until detection. See point 4 in
   [`open-points.md`](../open-points.md). Meaningless for home traffic.
