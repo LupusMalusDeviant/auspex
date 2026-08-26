@@ -1,27 +1,26 @@
 # Contributing
 
-Auspex grew out of a home network and is run in one. That shapes how things
-are done here: a change has to hold up on a real installation, not only in a
-test run. What follows is the way there.
+Auspex was written for a home network and is run in one. That shapes how the
+project works: a change has to hold up on a real installation, not just in a
+test run. This page describes how to get there.
 
-German or English, both are welcome in conversation. **Code is English** —
-identifiers, comments, commit-adjacent documentation. Display text exists
-twice, German and English, and lives in `Services/Localization/`. Where
-German deliberately stays inside the code — stored settings keys, the
-Fritz!Box vocabulary — is listed in
-[`docs/codemap.md`](docs/codemap.md).
+You are welcome to write in German or English. The **code itself is English**:
+identifiers, comments and documentation. Display text exists in both languages
+and lives in `Services/Localization/`. The parts of the code where German
+stays on purpose, such as stored settings keys and the Fritz!Box vocabulary,
+are listed in [`docs/codemap.md`](docs/codemap.md).
 
 ## Before you build something
 
-For anything larger than a typo: **an issue first.** Not as a formality, but
-because some of the points in [`docs/open-points.md`](docs/open-points.md)
-have already been decided — including a section "Deliberately not planned"
-with the reasons. A submitted DHCP server would go back from there unread,
-and that would be annoying for both sides.
+For anything larger than a typo, please open an issue first. This is not a
+formality. Several points in [`docs/open-points.md`](docs/open-points.md) have
+already been decided, and there is a section called "Deliberately not planned"
+that gives the reasons. A pull request adding a DHCP server, for example,
+would be declined on those grounds, which wastes everyone's time.
 
 ## Building and running
 
-Three parts, three toolchains:
+The project has three parts and three toolchains:
 
 ```bash
 # Resolver
@@ -49,29 +48,31 @@ high port and query it with `dig -p`. Everything else is in the
 
 ## What a contribution should bring
 
-**Tests, and ones with a reason.** The state of play is 432 tests on the
-control plane, 24 on the sensor and 13 green Go packages. The comments in
-them do not say *what* is being checked — that is in the code — but *why it
-could go wrong*. A test whose failure tells nobody anything is ballast.
+**Tests with a stated reason.** The project currently has 474 tests on the
+control plane, 24 on the sensor and 13 Go packages under test. The comments in
+them do not describe *what* is being checked, since the code already shows
+that. They describe what could go wrong and why it would matter. A test whose
+failure tells nobody anything is not worth keeping.
 
-**Comments that hold on to the why.** The how you read off the code. If a
-line looks like a detour, the reason belongs next to it — otherwise somebody
-clears it away in a year and finds the bug a second time.
+**Comments that record the reasoning.** How something works can be read off
+the code. If a line looks like a detour, write down why it is there. Otherwise
+somebody removes it in a year's time and rediscovers the bug it was avoiding.
 
-**Evidence for behavioural changes.** Whoever moves a threshold or touches a
-detector shows numbers: this many findings before, this many after, and why
-that is better. Two of this project's detectors were corrected in exactly
-that way — one accounted for 123 of 131 findings, another for not a single
-one although it should have.
+**Evidence for changes in behaviour.** If you move a threshold or change a
+detector, include numbers: how many findings before, how many after, and why
+the new figure is better. Two detectors in this project were corrected exactly
+that way. One was producing 123 of 131 findings on its own; another produced
+none at all although it should have.
 
-**No silent truncation.** If something covers only half the case, that
-belongs in the comment and in the pull request's description. A limit nobody
-mentions reads later like an assurance.
+**No silent truncation.** If a change only covers half a case, say so in the
+comment and in the pull request. A limit that nobody mentions will later be
+read as a guarantee.
 
 ## Commits
 
-A subject line that states something rather than naming a category. The body
-says **why**. German or English, consistently within one commit.
+Write a subject line that states what changed, rather than naming a category.
+Use the body to explain why. German or English, but stay in one language
+within a single commit.
 
 ```
 Von ueberall schreibt die Fritz!Box als 0.0.0.0

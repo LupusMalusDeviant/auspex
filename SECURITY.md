@@ -1,9 +1,10 @@
 # Security
 
-Auspex answers DNS for a whole network and can, with an account stored,
-reconfigure the router. Both are places where a mistake does more than crash
-something. This document says how to report one — and what is known already,
-so that nobody spends time on a report that is written here.
+Auspex answers DNS for an entire network, and if router credentials are
+stored, it can change the router's configuration. In both areas a mistake does
+more damage than a crash. This document explains how to report a problem, and
+lists what is already known so that nobody spends time writing up something
+described here.
 
 ## Reporting a vulnerability
 
@@ -18,15 +19,15 @@ thread only the maintainers can read.
 Helpful in a report:
 
 - What happens, and what would have to happen instead.
-- The shortest way to reproduce it — one `dig` line is worth more than three
-  paragraphs of description.
+- The shortest way to reproduce it. A single `dig` command is more useful
+  than three paragraphs of description.
 - The version or commit you checked against.
 - Whether you believe it is exploitable from the network or needs local
   access.
 
-An acknowledgement comes as soon as somebody looks. This is a spare-time
-project with no on-call rota — a fixed deadline would be a promise nobody
-could keep.
+You will get an acknowledgement as soon as someone has looked at the report.
+This is a spare-time project without an on-call rotation, so no fixed response
+time is promised; promising one would not be honest.
 
 ## What is in scope
 
@@ -39,12 +40,12 @@ Out of scope:
 - **The blocklists.** Auspex ships none. A wrong entry in somebody else's
   list belongs to its publisher.
 - **The Fritz!Box itself.** Firmware bugs go to AVM.
-- **Running it without the documented preconditions** — see below.
+- **Running it outside the documented preconditions**, described below.
 
 ## Known limits
 
-These are deliberate decisions, not open bugs. They are here so it is clear
-what the security model assumes.
+The following are deliberate decisions rather than open bugs. They are listed
+so that the assumptions behind the security model are visible.
 
 ### Auspex does not belong on the open internet
 
@@ -52,21 +53,23 @@ Without a proxy in front, the interface speaks **HTTP**, not HTTPS. The
 resolver accepts unencrypted DNS on port 53. Both are meant for a home
 network, behind a router that passes none of it through from outside.
 
-Whoever makes that publicly reachable hands everyone the sign-in in the
-clear and themselves an open resolver that can be abused for amplification
-attacks. If it does have to face outwards: a reverse proxy with TLS in front
-of it, and set `TRUSTED_PROXY` so the client addresses are right.
+Exposing this to the internet would send the sign-in over the network in
+plain text and would create an open resolver that can be abused for
+amplification attacks. If it does have to be reachable from outside, put a
+reverse proxy with TLS in front of it and set `TRUSTED_PROXY`, so that client
+addresses are still recorded correctly.
 
 ### Whoever is on the network may ask
 
-On a DNS query Auspex does not check *who* is asking — DNS cannot. Device
-profiles map by address and MAC, and both can be forged on the same network.
-The mapping exists to apply rules suitably and to make events readable. It is
-**not access control**.
+Auspex does not verify who is asking when a DNS query arrives, because DNS
+provides no way to do so. Device profiles are matched by address and MAC
+address, and both can be spoofed by anything already on the network. The
+purpose of that matching is to apply the right rules and to make the logs
+readable. It is not access control.
 
-A device can only be shut out effectively at the router
-(`X_AVM-DE_HostFilter`), and that is exactly what the router connection is
-there for.
+A device can only be shut out reliably at the router, through
+`X_AVM-DE_HostFilter`, which is one of the reasons the router connection
+exists.
 
 ### DNSSEC is not validated in-house
 
