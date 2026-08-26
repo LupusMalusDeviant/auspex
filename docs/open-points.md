@@ -1,14 +1,14 @@
 # Open points
 
 As of 25 August 2026. Sorted by usefulness, with the reason each is still
-open — not as a wish list, but so that nobody later has to guess whether
+open. It is not a wish list; it exists so that nobody later has to guess whether
 something was forgotten or was a decision.
 
 ## 1. A certificate for DoH and DoT
 
 DoH currently runs in the clear on loopback only. Without a certificate the
 feature that sends a phone through the filter while it is out of the house is
-unusable — which is exactly why it was built.
+unusable, which is precisely the case it was built for.
 
 Two routes: a certificate directly in `listen.cert_file`/`key_file`, or the
 nginx-proxy-manager that is running anyway terminates TLS. In the second case
@@ -22,8 +22,9 @@ Done on 23 August 2026: the canary domain plus the catalogue entry
 
 Firefox switches DoH on to its own provider and ignores the resolver on the
 network entirely. The remedy: answer the canary domain
-`use-application-dns.net` with NXDOMAIN — Firefox reads that as "the network
-filters" and leaves it alone — plus block the endpoints of the known DoH
+`use-application-dns.net` with NXDOMAIN, which Firefox reads as "this network
+filters" and therefore leaves its own resolution switched off, and to block
+the endpoints of the known DoH
 providers, so that a manually switched browser falls back.
 
 Would be one catalogue entry plus one rule, so not much work.
@@ -33,7 +34,8 @@ Would be one catalogue entry plus one rule, so not much work.
 Done on 23 August 2026. Original description:
 
 The analysis knows which domains the network asks for constantly. Pulling
-those in before the TTL expires — instead of from the third hit as now —
+those in before the TTL expires, rather than from the third hit as it does
+now,
 would raise the hit rate. None of the other tools can do that, because none
 of them analyses history.
 
@@ -46,7 +48,7 @@ the Wi-Fi is then no longer enough.
 
 **The limit first, so nobody overlooks it later:** DNS is not network access.
 A device with a DHCP address talks to every other device on the LAN directly
-over its IP, with mDNS, with SMB — none of which needs name resolution. It
+over its IP, with mDNS or with SMB, none of which needs name resolution. It
 gets outwards over hard-coded IPs or a resolver it enters itself. Real device
 control would be 802.1X or MAC-bound VLANs; the Fritz!Box can do neither.
 What would come into being here is a turnstile, not a wall: in practice a
@@ -54,7 +56,8 @@ television or a vacuum cleaner without name resolution is dead, but a device
 that sets out to get past will.
 
 **The one real gap is device identity.** Auspex today knows only the source
-IP, and an IP is not an identity — DHCP hands it out again. A register needs
+IP, and an IP is not an identity, because DHCP hands it out again. A register
+needs
 the MAC.
 
 Measured against the Fritz!Box 5690 Pro on 23 August 2026, and the result
@@ -68,14 +71,16 @@ and no credentials to manage. A poller with 48 SOAP calls per pass is enough:
     Body: <NewIndex>0..n</NewIndex>
 
 `GetHostNumberOfEntries` gives the count. The bulk query
-`X_AVM-DE_GetHostListPath` does demand a sign-in — the individual query by
+`X_AVM-DE_GetHostListPath` does require a sign-in, while the individual query
+by
 index does not.
 
 Device names already come from the Fritz!Box today, over reverse lookup
 (`hosts.resolve`), and are live on the test installation. So the register
 only adds the stable identifier, not the name.
 
-**What the design hangs on:** of the 48 MACs, **11 are randomised** — phones
+**What the design depends on:** of the 48 MAC addresses, 11 are randomised.
+Phones
 and tablets roll a private MAC per Wi-Fi. It is stable as long as the device
 knows the network; after "forget network" the same device turns up with a new
 MAC. So the approval flow has to be able to merge "known device, new MAC" in
@@ -95,23 +100,24 @@ Built on top of that:
 - **A "no purchases" category** in the service catalogue. Clean for dedicated
   payment and checkout hosts (PayPal, Klarna, Stripe checkout,
   `buy.itunes.apple.com`, Google Play billing). Not possible where the
-  purchase runs over the same host as the app itself — Amazon, Steam, every
+  purchase goes over the same host as the app itself. Amazon, Steam and every
   in-app shop on the normal API. That would mean looking inside the TLS
   connection, and you do not want that at home. A speed bump, not a lock.
 
 **If it is to have teeth:** couple the quarantine to the Fritz!Box. When
 Auspex puts a device in quarantine, it cuts that device's internet access
 over TR-064 at the same time. Then it is enforcement rather than a DNS brake
-— Auspex the brain, the Fritz!Box the hand.
+Auspex decides, the Fritz!Box acts.
 
 **A precondition that easily goes wrong:** Auspex has to see the devices
 individually. There are two places in the Fritz!Box for a DNS server and only
 one of them is any good. Under *Internet → Account information → DNS server*
-the Fritz!Box would use Auspex as its own upstream — then every query arrives
+the Fritz!Box would use Auspex as its own upstream, and then every query
+arrives
 with its address and device profiles are worthless, the same mistake as
 `network_mode: bridge`. The right one is *Home network → Network → Network
 settings*, where the Fritz!Box hands Auspex out to the devices over DHCP as
-their resolver directly. See also the point about port 53 further down —
+their resolver directly. See also the point about port 53 further down,
 without that this feature has no effect.
 
 ## ~~3. Router connection: pages of its own for everyday use~~ — done
@@ -120,7 +126,7 @@ Overview, devices, Wi-Fi, port mappings, IPv4, events and the catalogue exist
 as pages of their own with a shared tab bar.
 
 Followed up in August: on a rejected sign-in the calls returned an empty
-list, indistinguishable from "there is nothing" — the port mappings page then
+list, indistinguishable from "there is nothing". The port mappings page then
 reported "0 mappings, no door leads in from outside". A false statement about
 the security of the network. `RouterList<T>` now carries the reason with it.
 
@@ -128,7 +134,8 @@ the security of the network. `RouterList<T>` now carries the reason with it.
 
 The control plane fetches the query log every five seconds from a ring buffer
 of 10,000 entries. Under load that overflows: in the load test, at 41,000
-queries/s, 486,000 entries were missed — correctly reported, but lost.
+queries/s, 486,000 entries were missed. The loss was reported correctly, but
+the entries were gone.
 
 Meaningless for home traffic. Whoever wants to fix it: the resolver pushes
 instead of being polled (SSE, or a JSONL file the control plane follows). As
@@ -149,14 +156,14 @@ chosen to stay quiet rather than nag. Whether that holds only shows after a
 few weeks of real data.
 
 **Partly done.** `fehlalarm-verdacht` accounted for 123 of 131 findings and
-buried the rest — it now falls silent for a pair that has already been
+buried the rest. It now stays silent for a pair that has already been
 reported on several days. New is `dauersender` for the case
 `wiederholungssturm` cannot see: a storm that was always there and therefore
 has no spike.
 
 **Still open:** how often `neue-domain` reports (probably too often), and
 whether `gleichlauf` stays usable during update waves. Both need weeks of
-real data — the baseline was not even mature by 24 August (48 hours of
+real data. The baseline was not even mature by 24 August (48 hours of
 lead-in), and four detectors had never fired by then.
 
 ## 7. Measuring dashboard speed
@@ -176,7 +183,7 @@ router and the sensor on the endpoint. The other two projects have one each.
 
 The sensor reports that `msedge` connected to `104.18.x.x`. Auspex knows which
 addresses it ever handed out. If a connection goes to an address that never
-came out of a lookup, that connection bypassed the filter — because of
+came out of a lookup, that connection bypassed the filter, because of
 DNS-over-HTTPS in the browser, an address compiled into a program, or an app
 with its own resolver.
 
@@ -197,7 +204,7 @@ The same join in the other direction: `Connection.Process` over the address to
 `Resolution.Name`. The result is a sentence like "Chrome talked to 40 tracking
 domains, the vacuum cleaner to three endpoints abroad".
 
-Auspex already recorded both halves separately — which device asked for a
+Auspex already recorded both halves separately: which device asked for a
 name, and which program opened a connection. Putting them together produces a
 statement usually only available from commercial tooling. The result is the
 **Programs** page.
@@ -249,8 +256,8 @@ belongs to a device profile rather than to the network as a whole.
   asks for is currently only visible through the query-log filter. The
   "where to?" page answers part of it since the destinations were added.
 - **Editing schedules in the browser**: device profiles work, the time
-  windows inside them do not yet — those stay in the configuration file for
-  now.
+  windows inside them do not yet. Those stay in the configuration file for
+  the time being.
 - **Setting `GOMEMLIMIT`** if memory needs a hard ceiling: under load the
   heap grows from 375 to 570 MB.
 - **Extending the service catalogue**: 32 entries against AdGuard's several
@@ -264,8 +271,8 @@ belongs to a device profile rather than to the network as a whole.
   needed it. Forward resolution per zone is still open, and still only a
   nice-to-have.
 - **The tailnet listener is not used by anything yet.** Auspex listens on the
-  Tailscale address since 2026-08-26, but only servers are in that tailnet —
-  no phone. Two routes for that: Tailscale on the phone (then restricted by
+  Tailscale address since 2026-08-26, but the tailnet contains only servers
+  and no phone. Two routes for that: Tailscale on the phone (then restricted by
   ACL to `badwolf:53`, or a lost phone reaches every production server), or
   WireGuard on the Fritz!Box, after which the phone arrives as an ordinary
   home-network client and profiles, names and MAC binding keep working
@@ -277,7 +284,7 @@ belongs to a device profile rather than to the network as a whole.
 - **Filtering cannot be paused.** Both comparable projects can switch the
   filter off for a few minutes; Auspex cannot. The version worth having is
   ours rather than theirs: per profile, with an automatic end, and an entry
-  saying who paused what and when — theirs is global and leaves no trace.
+  saying who paused what and when. Theirs is global and leaves no record.
 - **No rate limit per client.** AdGuard Home discards above a threshold. The
   more useful reading is as a signal: a device suddenly asking fifty times its
   usual rate is a detector case (tunnelling, malware, a broken app), and the
@@ -294,7 +301,7 @@ deviations as a finding. Open to arbitrary remote ends is classified as
 `high`, otherwise as `warn`. The first run deliberately only takes stock.
 
 Learned in the process: the Fritz!Box writes "from anywhere" not as an empty
-value but as `0.0.0.0` — the classification would otherwise have led the
+value but as `0.0.0.0`. The classification would otherwise have led the
 mapping open to the whole world as the more harmless one of the two.
 
 ## 10. Traffic per device
@@ -305,7 +312,7 @@ numbers per device; which route gets them out cleanly has not been checked
 yet.
 
 The Windows sensor delivers a byte count per connection, but only for TCP,
-only with administrator rights and only as a lower bound — that answers "what
+only with administrator rights and only as a lower bound. That answers "what
 is this program sending", not "who is filling the line".
 
 ## ~~11. Downloading the extension from the dashboard~~ — done
@@ -313,7 +320,8 @@ is this program sending", not "who is filling the line".
 The dashboard packs the archive at run time from the sources and delivers it
 with the version in the file name. The container's build context sits one
 level higher for that; whether the sources really arrive in the image is
-checked by the CI job *build the container* — without it their absence would
+checked by the CI job *build the container*. Without that check, their absence
+would
 have stayed silent.
 
 ## 12. DHCP — the objection is answered, a second one stands
@@ -323,7 +331,8 @@ servers on the same network hand out contradictory addresses and take a
 household off the air.
 
 **The proposal answers that:** on switching on, Auspex turns the Fritz!Box's
-own DHCP server off. Then there are not two. And Auspex *can* do that — the
+own DHCP server off, so that there are never two. Auspex can do that, since
+the
 web-interface connection already sets IPv4 settings, and the DHCP switch sits
 on the same page.
 
@@ -331,14 +340,16 @@ on the same page.
 
 It concerns not normal operation but failure.
 
-If Auspex switches the Fritz DHCP off and then does not start itself — wrong
-configuration, an occupied port, a crash, a container restart gone wrong —
+If Auspex switches the Fritz!Box DHCP off and then fails to start itself,
+whether through a wrong configuration, an occupied port, a crash or a failed
+container restart,
 then **no device in the house** gets an address any more. Not the computer
 you would repair it with either. Not the phone you would look up how with.
 You stand there with a network cable and a statically assigned address, and
 few people in a household can manage that.
 
-That is the one failure you do not fix remotely — and the password rotation
+That is the one failure that cannot be fixed remotely, and the password
+rotation
 in August showed how quickly such a state comes about: a password changed on
 the box, not in Auspex, and the router connection was dead. Had DHCP hung off
 it, the house would have been offline.
@@ -349,15 +360,17 @@ It only gets built with a safety net that makes the failure impossible:
 
 1. **Run first, switch over second.** Auspex starts its DHCP service and
    demonstrably answers a test request of its own. Only then is the Fritz
-   DHCP switched off — not before, not at the same time.
+   DHCP switched off, not before and not at the same time.
 2. **A dead man's switch.** Auspex renews a marker regularly. If it stops,
    the Fritz DHCP gets switched back on. The route to that has to work
-   without Auspex — so a small watcher of its own, not the same process that
+   without Auspex, so it needs a small watcher of its own rather than the
+   process that
    has just died.
 3. **A clean exit.** On an orderly shutdown Auspex switches the Fritz DHCP
    back before it stops itself.
 4. **Short lease times at first.** The first leases with a few minutes'
-   validity: if Auspex fails, the devices ask again quickly — and then get an
+   validity, so that if Auspex fails the devices ask again quickly and then
+   get an
    answer from the box that has been switched back on. Longer times only
    after a week that has proved itself.
 5. **A way back without a network.** A file or a switch on the container that
@@ -378,7 +391,7 @@ within Auspex, the assignment itself visible in the query log, and a device
 in the waiting room could be turned away at address assignment rather than
 only at name resolution.
 
-That is a real gain for the device register (point 2) — but it does not
+That is a real gain for the device register (point 2), but it does not
 outweigh the outage as long as the five safeguards above are not in place.
 
 ## ~~13. A bilingual interface~~ — done
@@ -388,16 +401,19 @@ and not `en-US`: a log with "2:05 PM" is harder to read than one with
 "14:05".
 
 **Built differently from the plan here.** The plan called for `.resx` and
-`IStringLocalizer` — the usual route. Two things spoke against it that only
+`IStringLocalizer`, which is the usual route. Two things spoke against it that
+only
 showed on looking closely. First, a dictionary of keys falls over silently:
 if one is missing, `IStringLocalizer` returns the key name, and the page
 reads "Strom_Zusammenfassung". Second, `{0}` and `{1}` do not say what they
-mean — a swapped pair yields a grammatically flawless, wrong sentence.
+mean, and a swapped pair produces a grammatically perfect but wrong
+sentence.
 
 Instead an abstract class `Strings` with two derivations. Whoever adds a
 sentence has to add it in *every* language, or the build breaks. The
 half-translated interface this point warned about cannot come into being at
-all — the planned point 4 (a CI check) was made unnecessary by the compiler.
+all. The planned point 4, a CI check, turned out to be unnecessary because the
+compiler already catches it.
 
 **Not `Accept-Language` as the default**, contrary to what was proposed here.
 The header travels with every browser unasked, and a browser that happens to
@@ -423,7 +439,7 @@ second:
 
 Plus a fourth, larger point: **the detectors were writing finished sentences
 into the database.** That no longer worked out, and the reason is older than
-the translation — detection runs every five minutes in the background,
+the translation. Detection runs every five minutes in the background,
 without anybody having opened a page. There is no reader at that moment and
 therefore no language. A finding now carries only its measurements
 (`FindingValues`); the sentence comes into being at display time. Findings

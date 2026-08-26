@@ -1,36 +1,39 @@
 # The Auspex extension
 
-Exceptions for the device it runs on — without the detour through the admin
-interface.
+The extension lets you create exceptions for the device it is running on,
+without going through the admin interface.
 
 ## What it can do that the dashboard cannot
 
-The browser knows what broke on **this** page. Through
-`webRequest.onErrorOccurred` the extension sees exactly the requests that
-failed with `ERR_NAME_NOT_RESOLVED` — that is, the names Auspex blocked while
-you were on the page.
+The browser knows what failed on the page you are looking at. Through
+`webRequest.onErrorOccurred`, the extension sees exactly which requests failed
+with `ERR_NAME_NOT_RESOLVED`, which are the names Auspex blocked while you
+were on that page.
 
-In the query log the same thing would sit somewhere between the queries of
-thirty other devices. This turns "something is broken" into a button.
+In the query log the same information would be buried among the queries of
+thirty other devices. The extension turns "something on this page is broken"
+into a button.
 
-Allowing works for 15 minutes, an hour, or for good. Temporary is the
-default: the usual case is a one-off, and permanent exceptions otherwise
-pile up until nobody knows why a line is in there any more.
+An exception can be granted for 15 minutes, for an hour, or permanently.
+Temporary is the default, because most cases are one-offs, and permanent
+exceptions otherwise accumulate until nobody remembers why a given entry is
+there.
 
 ## Building and loading
 
     ./build.sh
 
-**Chrome/Edge** — `chrome://extensions`, developer mode on, "Load unpacked",
-folder `dist/chrome`.
+**Chrome and Edge:** open `chrome://extensions`, switch on developer mode,
+choose "Load unpacked" and select the folder `dist/chrome`.
 
-**Firefox** — `about:debugging#/runtime/this-firefox`, "Load Temporary
-Add-on", file `dist/firefox/manifest.json`. Firefox asks for the host
-permission separately; without it the extension sees no failed requests.
+**Firefox:** open `about:debugging#/runtime/this-firefox`, choose "Load
+Temporary Add-on" and select `dist/firefox/manifest.json`. Firefox asks for
+the host permission separately; without it the extension sees no failed
+requests.
 
-You do not need the repository for this: the dashboard packs the same
-archive under **Settings → Browser extension**, built from the sources in
-the image rather than from a checked-in zip.
+You do not need a copy of the repository for this. The dashboard builds the
+same archive under **Settings → Browser extension**, from the sources inside
+the image rather than from a zip file kept in version control.
 
 ## Setting it up
 
@@ -38,24 +41,24 @@ In the dashboard under **Settings → Browser extension**, issue a token. It is
 shown exactly once. Then enter it in the extension's settings, together with
 the dashboard's address.
 
-Why a token of its own and not the dashboard's session: the session cookie
-is set to `SameSite=Lax`, and a request from an extension counts to the
-browser as a foreign context — it simply would not travel with it. A token
-of its own can also be withdrawn on its own without throwing anybody out of
-the dashboard.
+The extension uses its own token rather than the dashboard session for two
+reasons. The session cookie is set to `SameSite=Lax`, and the browser treats a
+request from an extension as a foreign context, so the cookie would not be
+sent at all. A separate token can also be revoked on its own, without signing
+anybody out of the dashboard.
 
 ## Which device is meant
 
-Not what the extension says, but the address it asks from. The resolver
-resolves it through the neighbour table to a MAC and from there to the
-device name. So the extension cannot change somebody else's device, not even
-by accident.
+The device is determined by the address the request comes from, not by
+anything the extension claims. The resolver looks that address up in the
+neighbour table to get a MAC address, and from there the device name. The
+extension therefore cannot change another device's rules, even by mistake.
 
-The exception lands in the device profile, bound to the **MAC** — not to the
-address. Under IPv6 an address binding would be worthless from tomorrow,
-because Windows and Android rotate their temporary addresses daily. And
-silently so: nothing would have broken, the exception would merely have
-stopped applying.
+The exception is stored in the device profile and bound to the MAC address
+rather than to the IP address. An IP binding would stop working the next day
+under IPv6, because Windows and Android rotate their temporary addresses
+daily. It would also fail silently: nothing would break, the exception would
+simply stop applying.
 
 ## Redirects: usually more than one click
 
